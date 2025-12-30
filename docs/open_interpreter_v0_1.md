@@ -58,6 +58,7 @@ Allowlist extension examples:
 ### Staged vs unstaged notes
 - `git diff --name-only` covers unstaged changes.
 - `git diff --name-only --cached` covers staged changes.
+- `git status --porcelain` covers untracked changes.
 
 ## System message (v0.1)
 Suggested Open Interpreter system message:

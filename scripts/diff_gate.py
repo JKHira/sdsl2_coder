@@ -40,6 +40,10 @@ def main() -> int:
     if diff_cached.returncode != 0:
         print("DIFF_GATE_DIFF_CACHED_FAILED", file=sys.stderr)
         return 2
+    status = run(["git", "status", "--porcelain"])
+    if status.returncode != 0:
+        print("DIFF_GATE_STATUS_FAILED", file=sys.stderr)
+        return 2
 
     files = set()
     for line in diff.stdout.splitlines():
@@ -48,6 +52,11 @@ def main() -> int:
     for line in diff_cached.stdout.splitlines():
         if line.strip():
             files.add(line.strip())
+    for line in status.stdout.splitlines():
+        if line.startswith("?? "):
+            path = line[3:].strip()
+            if path:
+                files.add(path)
 
     if not files:
         print("[OK] diff gate (no changes)")
