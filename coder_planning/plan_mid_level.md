@@ -68,7 +68,7 @@ Progress Checklist (as of now)
 - [x] Phase F: Apply Gate A/B legacy checks or port core logic.
 - [ ] Phase F: Generate v2 outputs for provided Contract/Topology examples.
 
-# v0.2 Planning (Draft)
+# v0.2 Planning (Locked)
 
 Phase V2-A: Spec bump definition
 1) Spec bump triggers (判定可能):
@@ -77,6 +77,7 @@ Phase V2-A: Spec bump definition
    - Token placement: change allowed fields for CONTRACT/SSOT tokens.
    - Gate C transform: introduce output rewriting rules.
 2) Spec locks / versioning policy for v0.2 (diff rules from v0.1).
+   - Locked in `coder_planning/v0_2_triggers_locks.md`.
 
 Phase V2-B: Gate C transform (optional)
 3) Define transform rules (formatting, normalization) as explicit spec.
@@ -88,3 +89,6 @@ Phase V2-C: Contract inputs (optional)
 
 Phase V2-D: Tooling/CLI (optional)
 7) Evaluate new CLI commands and update run/lint policy.
+
+v0.2 scope decision:
+- Locked in `coder_planning/v0_2_scope_decision.md`.

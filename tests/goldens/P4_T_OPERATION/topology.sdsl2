@@ -11,3 +11,24 @@
 @Node { id:"P4_T_OPS_OPERATIONS_SERVICE", kind:"component" }
 @Node { id:"P4_T_RCF_POSITION_RECONCILER", kind:"component" }
 @Node { id:"P4_T_RCF_RECONCILIATION_SCHEDULER", kind:"component" }
+@Edge {
+  id:"E_475E4C64B386E193",
+  from:@Node.P4_T_AER_ADMIN_ROUTER,
+  to:@Node.P4_T_AER_MASTER_RELOAD_CHANNEL,
+  direction:"pub",
+  contract_refs:["CONTRACT.MASTER_RELOAD_CHANNEL"],
+}
+@Edge {
+  id:"E_F84E4796EA6978A4",
+  from:@Node.P4_T_OPS_OPERATIONS_SERVICE,
+  to:@Node.P4_T_RCF_RECONCILIATION_SCHEDULER,
+  direction:"call",
+  contract_refs:["CONTRACT.SYSTEM_PHASE"],
+}
+@Edge {
+  id:"E_A1CB9C33A812E837",
+  from:@Node.P4_T_RCF_RECONCILIATION_SCHEDULER,
+  to:@Node.P4_T_RCF_POSITION_RECONCILER,
+  direction:"call",
+  contract_refs:["CONTRACT.SYSTEM_STATE"],
+}

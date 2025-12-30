@@ -146,6 +146,11 @@ def build_p3_schema_validation_excerpt() -> str:
 def build_p5_execution_message_excerpt() -> str:
     builder = ContractBuilder()
     builder.file("P5_EXECUTION_MESSAGE")
+
+    builder.structure(
+        "P5_C_PCC_EMIDL_ID_MODEL_OUTPUT_ID",
+        decl="struct ModelOutputId { value: UUID }\n",
+    )
     builder.structure(
         "P5_C_PCC_EMIDL_ID_SIGNAL_ID",
         decl="struct SignalId { value: UUID }\n",
@@ -159,10 +164,20 @@ def build_p5_execution_message_excerpt() -> str:
         decl="struct ClOrdId { value: UUID }\n",
     )
     builder.structure(
+        "P5_C_PCC_EMIDL_ID_VENUE_ORDER_ID",
+        decl="struct VenueOrderId { value: s }\n",
+    )
+    builder.structure(
+        "P5_C_PCC_EMIDL_ID_TRADE_ID",
+        decl="struct TradeId { value: s }\n",
+    )
+
+    builder.structure(
         "P5_C_MSEP_EMIDL_L5_STRATEGY_SIGNAL",
         decl=(
             "struct StrategySignal {\n"
             "  signal_id: SignalId,\n"
+            "  model_output_id: ModelOutputId?,\n"
             "  instrument_id: s,\n"
             "  direction: \"BUY\"|\"SELL\",\n"
             "  timestamp_ns: i64,\n"
@@ -179,6 +194,56 @@ def build_p5_execution_message_excerpt() -> str:
             "  side: \"BUY\"|\"SELL\",\n"
             "  quantity: Decimal,\n"
             "  timestamp_ns: i64,\n"
+            "}\n"
+        ),
+    )
+
+    builder.structure(
+        "P5_C_MOMEA_EMIDL_L6_ORDER_SUBMIT_REQUEST",
+        decl=(
+            "struct OrderSubmitRequest {\n"
+            "  client_order_id: ClOrdId,\n"
+            "  signal_id: SignalId,\n"
+            "  instrument_id: s,\n"
+            "  side: \"BUY\"|\"SELL\",\n"
+            "  quantity: Decimal,\n"
+            "  timestamp_ns: i64,\n"
+            "}\n"
+        ),
+    )
+    builder.structure(
+        "P5_C_MOMEA_EMIDL_L6_ORDER_ACCEPTED",
+        decl=(
+            "struct OrderAccepted {\n"
+            "  client_order_id: ClOrdId,\n"
+            "  venue_order_id: VenueOrderId,\n"
+            "  accepted_at_ns: i64,\n"
+            "}\n"
+        ),
+    )
+    builder.structure(
+        "P5_C_MOMEA_EMIDL_L6_ORDER_REJECTED",
+        decl=(
+            "struct OrderRejected {\n"
+            "  client_order_id: ClOrdId,\n"
+            "  reason: s,\n"
+            "  error_code: s?,\n"
+            "  rejected_at_ns: i64,\n"
+            "}\n"
+        ),
+    )
+    builder.structure(
+        "P5_C_MOMEA_EMIDL_L6_ORDER_FILLED",
+        decl=(
+            "struct OrderFilled {\n"
+            "  client_order_id: ClOrdId,\n"
+            "  venue_order_id: VenueOrderId,\n"
+            "  trade_id: TradeId,\n"
+            "  fill_price: Decimal,\n"
+            "  fill_quantity: Decimal,\n"
+            "  remaining_quantity: Decimal,\n"
+            "  is_fully_filled: b,\n"
+            "  filled_at_ns: i64,\n"
             "}\n"
         ),
     )
@@ -217,6 +282,71 @@ def build_p5_execution_message_excerpt() -> str:
             "RULE_BIND",
         ),
         ssot=[_must_ref(parse_ssot_ref("SSOT.RedisKeyCatalog"), "RULE_SSOT")],
+    )
+    builder.rule(
+        "P5_C_MOMEA_CLORDID_MAP",
+        bind=_must_ref(
+            parse_internal_ref("@Structure.P5_C_MOMEA_EMIDL_L6_ORDER_SUBMIT_REQUEST"),
+            "RULE_BIND",
+        ),
+        refs=[
+            _must_ref(
+                parse_internal_ref("@Structure.P5_C_PCC_EMIDL_ID_CLORD_ID"),
+                "RULE_REF_CLORD",
+            ),
+            _must_ref(
+                parse_internal_ref("@Structure.P5_C_PCC_EMIDL_ID_INTENT_ID"),
+                "RULE_REF_INTENT",
+            ),
+        ],
+    )
+    builder.rule(
+        "P5_C_MOMEA_TOPIC_EXECUTION_ORDERS_SUBMIT",
+        bind=_must_ref(
+            parse_internal_ref("@Structure.P5_C_MOMEA_EMIDL_L6_ORDER_SUBMIT_REQUEST"),
+            "RULE_BIND",
+        ),
+        refs=[
+            _must_ref(
+                parse_internal_ref("@Structure.P5_C_MOMEA_EMIDL_L6_ORDER_SUBMIT_REQUEST"),
+                "RULE_REF",
+            )
+        ],
+    )
+    builder.rule(
+        "P5_C_MOMEA_TOPIC_EXECUTION_ORDERS_STATE",
+        bind=_must_ref(
+            parse_internal_ref("@Structure.P5_C_MOMEA_EMIDL_L6_ORDER_ACCEPTED"),
+            "RULE_BIND",
+        ),
+        refs=[
+            _must_ref(
+                parse_internal_ref("@Structure.P5_C_MOMEA_EMIDL_L6_ORDER_ACCEPTED"),
+                "RULE_REF_A",
+            ),
+            _must_ref(
+                parse_internal_ref("@Structure.P5_C_MOMEA_EMIDL_L6_ORDER_REJECTED"),
+                "RULE_REF_R",
+            ),
+            _must_ref(
+                parse_internal_ref("@Structure.P5_C_MOMEA_EMIDL_L6_ORDER_FILLED"),
+                "RULE_REF_F",
+            ),
+        ],
+    )
+    builder.rule(
+        "P5_C_MSEP_TOPIC_STRATEGY_SIGNALS",
+        bind=_must_ref(
+            parse_internal_ref("@Structure.P5_C_MSEP_EMIDL_L5_STRATEGY_SIGNAL"),
+            "RULE_BIND",
+        ),
+    )
+    builder.rule(
+        "P5_C_BMOM_TOPIC_EXECUTION_INTENTS",
+        bind=_must_ref(
+            parse_internal_ref("@Structure.P5_C_BMOM_EMIDL_BM_EXECUTION_INTENT"),
+            "RULE_BIND",
+        ),
     )
     return write_contract(builder.build())
 

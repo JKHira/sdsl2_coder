@@ -79,7 +79,7 @@ DoD (per sample case):
 - Diff gate passes (changes only under allowlist).
 - Spec lock updated if any locked files changed.
 
-## v0.2 Planning (Draft)
+## v0.2 Planning (Locked)
 V2-A: Spec bump definition
 1) Spec bump triggers (判定可能):
    - Error codes: add new code or change meaning of message/expected/got/path.
@@ -87,6 +87,7 @@ V2-A: Spec bump definition
    - Token placement: change allowed fields for CONTRACT/SSOT tokens.
    - Gate C transform: introduce output rewriting rules.
 2) Spec locks / versioning policy for v0.2 (diff rules from v0.1).
+   - Locked in `coder_planning/v0_2_triggers_locks.md`.
 
 V2-B: Gate C transform (optional)
 3) Define transform rules (what to normalize vs never touch).
@@ -98,3 +99,6 @@ V2-C: Contract inputs (optional)
 
 V2-D: Tooling / CLI (optional)
 7) New commands only after v0.2 spec bump (Builder/Writer remain SSOT).
+
+v0.2 scope decision:
+- Locked in `coder_planning/v0_2_scope_decision.md`.

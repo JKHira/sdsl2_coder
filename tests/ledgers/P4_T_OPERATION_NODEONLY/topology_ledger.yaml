@@ -5,7 +5,7 @@ file_header:
   id_prefix: P4_T_OPERATION
 source:
   input_path: C_T/Topology/P4_OPERATION_SDSL_TOPOLOGY.md
-  evidence_note: "Node-only extraction from @Structure tags; edges not provided."
+  evidence_note: "Edges are explicit facts derived from @Function/@Rule in P4_OPERATION (OPS->SCHED via P4_T_RCF_OPS_ON_STATE_CHANGE + CONTRACT.SYSTEM_PHASE; SCHED->RECONCILER via reconciler field + CONTRACT.SYSTEM_STATE; AER_ADMIN->MASTER_RELOAD via redis.publish + CONTRACT.MASTER_RELOAD_CHANNEL)."
 nodes:
   - id: P4_T_ADL_AUDIT_LOGGER
     kind: component
@@ -31,4 +31,19 @@ nodes:
     kind: component
   - id: P4_T_RCF_RECONCILIATION_SCHEDULER
     kind: component
-edges: []
+edges:
+  - from: P4_T_OPS_OPERATIONS_SERVICE
+    to: P4_T_RCF_RECONCILIATION_SCHEDULER
+    direction: call
+    contract_refs:
+      - CONTRACT.SYSTEM_PHASE
+  - from: P4_T_RCF_RECONCILIATION_SCHEDULER
+    to: P4_T_RCF_POSITION_RECONCILER
+    direction: call
+    contract_refs:
+      - CONTRACT.SYSTEM_STATE
+  - from: P4_T_AER_ADMIN_ROUTER
+    to: P4_T_AER_MASTER_RELOAD_CHANNEL
+    direction: pub
+    contract_refs:
+      - CONTRACT.MASTER_RELOAD_CHANNEL

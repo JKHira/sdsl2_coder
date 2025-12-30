@@ -8,9 +8,43 @@ struct ExecutionIntent {
   quantity: Decimal,
   timestamp_ns: i64,
 }
+@Structure { id:"P5_C_MOMEA_EMIDL_L6_ORDER_ACCEPTED" }
+struct OrderAccepted {
+  client_order_id: ClOrdId,
+  venue_order_id: VenueOrderId,
+  accepted_at_ns: i64,
+}
+@Structure { id:"P5_C_MOMEA_EMIDL_L6_ORDER_FILLED" }
+struct OrderFilled {
+  client_order_id: ClOrdId,
+  venue_order_id: VenueOrderId,
+  trade_id: TradeId,
+  fill_price: Decimal,
+  fill_quantity: Decimal,
+  remaining_quantity: Decimal,
+  is_fully_filled: b,
+  filled_at_ns: i64,
+}
+@Structure { id:"P5_C_MOMEA_EMIDL_L6_ORDER_REJECTED" }
+struct OrderRejected {
+  client_order_id: ClOrdId,
+  reason: s,
+  error_code: s?,
+  rejected_at_ns: i64,
+}
+@Structure { id:"P5_C_MOMEA_EMIDL_L6_ORDER_SUBMIT_REQUEST" }
+struct OrderSubmitRequest {
+  client_order_id: ClOrdId,
+  signal_id: SignalId,
+  instrument_id: s,
+  side: "BUY"|"SELL",
+  quantity: Decimal,
+  timestamp_ns: i64,
+}
 @Structure { id:"P5_C_MSEP_EMIDL_L5_STRATEGY_SIGNAL" }
 struct StrategySignal {
   signal_id: SignalId,
+  model_output_id: ModelOutputId?,
   instrument_id: s,
   direction: "BUY"|"SELL",
   timestamp_ns: i64,
@@ -19,9 +53,32 @@ struct StrategySignal {
 struct ClOrdId { value: UUID }
 @Structure { id:"P5_C_PCC_EMIDL_ID_INTENT_ID" }
 struct IntentId { value: UUID }
+@Structure { id:"P5_C_PCC_EMIDL_ID_MODEL_OUTPUT_ID" }
+struct ModelOutputId { value: UUID }
 @Structure { id:"P5_C_PCC_EMIDL_ID_SIGNAL_ID" }
 struct SignalId { value: UUID }
+@Structure { id:"P5_C_PCC_EMIDL_ID_TRADE_ID" }
+struct TradeId { value: s }
+@Structure { id:"P5_C_PCC_EMIDL_ID_VENUE_ORDER_ID" }
+struct VenueOrderId { value: s }
 @Rule { id:"P5_C_BMOM_LINK_SIGNAL", bind:@Structure.P5_C_PCC_EMIDL_ID_SIGNAL_ID }
+@Rule { id:"P5_C_BMOM_TOPIC_EXECUTION_INTENTS", bind:@Structure.P5_C_BMOM_EMIDL_BM_EXECUTION_INTENT }
+@Rule {
+  id:"P5_C_MOMEA_CLORDID_MAP",
+  bind:@Structure.P5_C_MOMEA_EMIDL_L6_ORDER_SUBMIT_REQUEST,
+  refs:[@Structure.P5_C_PCC_EMIDL_ID_CLORD_ID,@Structure.P5_C_PCC_EMIDL_ID_INTENT_ID],
+}
+@Rule {
+  id:"P5_C_MOMEA_TOPIC_EXECUTION_ORDERS_STATE",
+  bind:@Structure.P5_C_MOMEA_EMIDL_L6_ORDER_ACCEPTED,
+  refs:[@Structure.P5_C_MOMEA_EMIDL_L6_ORDER_ACCEPTED,@Structure.P5_C_MOMEA_EMIDL_L6_ORDER_REJECTED,@Structure.P5_C_MOMEA_EMIDL_L6_ORDER_FILLED],
+}
+@Rule {
+  id:"P5_C_MOMEA_TOPIC_EXECUTION_ORDERS_SUBMIT",
+  bind:@Structure.P5_C_MOMEA_EMIDL_L6_ORDER_SUBMIT_REQUEST,
+  refs:[@Structure.P5_C_MOMEA_EMIDL_L6_ORDER_SUBMIT_REQUEST],
+}
+@Rule { id:"P5_C_MSEP_TOPIC_STRATEGY_SIGNALS", bind:@Structure.P5_C_MSEP_EMIDL_L5_STRATEGY_SIGNAL }
 @Rule {
   id:"P5_C_PCC_CLORDID_L6",
   bind:@Structure.P5_C_PCC_EMIDL_ID_INTENT_ID,

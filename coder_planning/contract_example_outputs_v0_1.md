@@ -17,7 +17,7 @@ Operational entrypoint: see `README.md` (Open Interpreter Quickstart).
 - Golden output: `tests/goldens/P5_EXECUTION_MESSAGE/contract.sdsl2`
 - Repro command: `python3 scripts/contract_golden_check.py --case P5_EXECUTION_MESSAGE_EXCERPT --emit-stdout --golden tests/goldens/P5_EXECUTION_MESSAGE/contract.sdsl2`
 - Source SSOT: `C_T/Contract/P5_EXECUTION_MESSAGE_SDSL_CONTRACT.md`
-- Scope: ID wrappers, two message structures, and core rules (L6 clordid, link signal, retry max, redis orders).
+- Scope: ID wrappers, L5/L6 messages, L6 submit/events, and core rules (clordid, link signal, retry max, redis orders).
 - Notes: DocMeta is omitted to keep the excerpt minimal and deterministic.
 
 ## Contract Inputs (v0.1)
