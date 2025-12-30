@@ -38,7 +38,7 @@ Note: Operational entrypoint is in `README.md` (Open Interpreter Quickstart).
 - [x] Add golden output under tests/goldens/<CASE>/ and register in determinism_manifest.
 - [x] Verify determinism_check (2x run hash match + golden match).
 - [x] Verify Gate A/B pass for OUTPUT/ and tests/goldens/.
-- [ ] Verify diff gate passes (allowlist-only changes).
+- [x] Verify diff gate passes (allowlist-only changes).
 - [ ] Update spec locks if any locked files changed.
 
 ## v0.2 Planning (Draft, single source)
