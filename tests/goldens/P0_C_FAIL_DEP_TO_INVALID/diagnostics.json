@@ -1,0 +1,9 @@
+[
+  {
+    "code": "E_TOKEN_PLACEMENT_VIOLATION",
+    "message": "dep to must be InternalRef or ContractRef",
+    "expected": "@Kind.RELID or CONTRACT.*",
+    "got": "BAD_TOKEN",
+    "path": "/dep/to"
+  }
+]

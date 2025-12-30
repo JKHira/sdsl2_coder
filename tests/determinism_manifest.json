@@ -1,0 +1,214 @@
+{
+  "version": "determinism-manifest-v0.1",
+  "cases": [
+    {
+      "ledger": "tests/ledgers/P0_T_EXAMPLE/topology_ledger.yaml",
+      "output": "OUTPUT/P0_T_EXAMPLE/topology.sdsl2",
+      "golden": "tests/goldens/P0_T_EXAMPLE/topology.sdsl2"
+    },
+    {
+      "ledger": "tests/ledgers/P0_T_MULTIREF/topology_ledger.yaml",
+      "output": "OUTPUT/P0_T_MULTIREF/topology.sdsl2",
+      "golden": "tests/goldens/P0_T_MULTIREF/topology.sdsl2"
+    },
+    {
+      "ledger": "tests/ledgers/P0_T_BIND/topology_ledger.yaml",
+      "output": "OUTPUT/P0_T_BIND/topology.sdsl2",
+      "golden": "tests/goldens/P0_T_BIND/topology.sdsl2"
+    },
+    {
+      "ledger": "tests/ledgers/P0_T_MULTI_EDGE/topology_ledger.yaml",
+      "output": "OUTPUT/P0_T_MULTI_EDGE/topology.sdsl2",
+      "golden": "tests/goldens/P0_T_MULTI_EDGE/topology.sdsl2"
+    },
+    {
+      "ledger": "tests/ledgers/P4_T_OPERATION_NODEONLY/topology_ledger.yaml",
+      "output": "OUTPUT/P4_T_OPERATION/topology.sdsl2",
+      "golden": "tests/goldens/P4_T_OPERATION/topology.sdsl2"
+    },
+    {
+      "ledger": "tests/ledgers/P0_T_FAIL_EMPTY_REFS/topology_ledger.yaml",
+      "expect": {
+        "phase": "run",
+        "exit_code": 2,
+        "diagnostics_golden": "tests/goldens/P0_T_FAIL_EMPTY_REFS/diagnostics.json"
+      }
+    },
+    {
+      "ledger": "tests/ledgers/P0_T_FAIL_BAD_REF/topology_ledger.yaml",
+      "expect": {
+        "phase": "run",
+        "exit_code": 2,
+        "diagnostics_golden": "tests/goldens/P0_T_FAIL_BAD_REF/diagnostics.json"
+      }
+    },
+    {
+      "ledger": "tests/ledgers/P0_T_FAIL_OUTPUT_PATH/topology_ledger.yaml",
+      "expect": {
+        "phase": "run",
+        "exit_code": 2,
+        "diagnostics_golden": "tests/goldens/P0_T_FAIL_OUTPUT_PATH/diagnostics.json"
+      }
+    },
+    {
+      "ledger": "tests/ledgers/P0_T_FAIL_DUP_EDGE/topology_ledger.yaml",
+      "expect": {
+        "phase": "run",
+        "exit_code": 2,
+        "diagnostics_golden": "tests/goldens/P0_T_FAIL_DUP_EDGE/diagnostics.json"
+      }
+    },
+    {
+      "input": "tests/inputs/P0_T_FAIL_NO_FILE/topology.sdsl2",
+      "expect": {
+        "phase": "lint",
+        "exit_code": 2,
+        "diagnostics_golden": "tests/goldens/P0_T_FAIL_NO_FILE/diagnostics.json"
+      }
+    },
+    {
+      "input": "tests/inputs/P0_T_FAIL_DUP_FILE/topology.sdsl2",
+      "expect": {
+        "phase": "lint",
+        "exit_code": 2,
+        "diagnostics_golden": "tests/goldens/P0_T_FAIL_DUP_FILE/diagnostics.json"
+      }
+    },
+    {
+      "input": "tests/inputs/P0_T_FAIL_FILE_NOT_FIRST/topology.sdsl2",
+      "expect": {
+        "phase": "lint",
+        "exit_code": 2,
+        "diagnostics_golden": "tests/goldens/P0_T_FAIL_FILE_NOT_FIRST/diagnostics.json"
+      }
+    },
+    {
+      "input": "tests/inputs/P0_T_FAIL_KIND_FORBIDDEN/topology.sdsl2",
+      "expect": {
+        "phase": "lint",
+        "exit_code": 2,
+        "diagnostics_golden": "tests/goldens/P0_T_FAIL_KIND_FORBIDDEN/diagnostics.json"
+      }
+    },
+    {
+      "input": "tests/inputs/P0_T_FAIL_PROFILE_MISMATCH/topology.sdsl2",
+      "expect": {
+        "phase": "lint",
+        "exit_code": 2,
+        "diagnostics_golden": "tests/goldens/P0_T_FAIL_PROFILE_MISMATCH/diagnostics.json"
+      }
+    },
+    {
+      "input": "tests/inputs/P0_T_FAIL_ID_PREFIX_EMPTY/topology.sdsl2",
+      "expect": {
+        "phase": "lint",
+        "exit_code": 2,
+        "diagnostics_golden": "tests/goldens/P0_T_FAIL_ID_PREFIX_EMPTY/diagnostics.json"
+      }
+    },
+    {
+      "contract_case": "FAIL_RELID",
+      "expect": {
+        "phase": "contract",
+        "exit_code": 2,
+        "diagnostics_golden": "tests/goldens/P0_C_FAIL_RELID/diagnostics.json"
+      }
+    },
+    {
+      "contract_case": "FAIL_RULE_BIND_MISSING",
+      "expect": {
+        "phase": "contract",
+        "exit_code": 2,
+        "diagnostics_golden": "tests/goldens/P0_C_FAIL_RULE_BIND_MISSING/diagnostics.json"
+      }
+    },
+    {
+      "contract_case": "FAIL_DEP_TO_INVALID",
+      "expect": {
+        "phase": "contract",
+        "exit_code": 2,
+        "diagnostics_golden": "tests/goldens/P0_C_FAIL_DEP_TO_INVALID/diagnostics.json"
+      }
+    },
+    {
+      "contract_case": "FAIL_REFS_NOT_INTERNAL",
+      "expect": {
+        "phase": "contract",
+        "exit_code": 2,
+        "diagnostics_golden": "tests/goldens/P0_C_FAIL_REFS_NOT_INTERNAL/diagnostics.json"
+      }
+    },
+    {
+      "contract_case": "FAIL_CONTRACT_NOT_CONTRACTREF",
+      "expect": {
+        "phase": "contract",
+        "exit_code": 2,
+        "diagnostics_golden": "tests/goldens/P0_C_FAIL_CONTRACT_NOT_CONTRACTREF/diagnostics.json"
+      }
+    },
+    {
+      "contract_case": "FAIL_SSOT_NOT_SSOTREF",
+      "expect": {
+        "phase": "contract",
+        "exit_code": 2,
+        "diagnostics_golden": "tests/goldens/P0_C_FAIL_SSOT_NOT_SSOTREF/diagnostics.json"
+      }
+    },
+    {
+      "contract_case": "FAIL_KIND_FORBIDDEN",
+      "expect": {
+        "phase": "contract",
+        "exit_code": 2,
+        "diagnostics_golden": "tests/goldens/P0_C_FAIL_KIND_FORBIDDEN/diagnostics.json"
+      }
+    },
+    {
+      "contract_case": "FULL",
+      "golden": "tests/goldens/P0_C_FULL/contract.sdsl2",
+      "expect": {
+        "phase": "contract_success",
+        "exit_code": 0
+      }
+    },
+    {
+      "contract_case": "MIN",
+      "golden": "tests/goldens/P0_C_MIN/contract.sdsl2",
+      "expect": {
+        "phase": "contract_success",
+        "exit_code": 0
+      }
+    },
+    {
+      "contract_case": "ESCAPE",
+      "golden": "tests/goldens/P0_C_ESCAPE/contract.sdsl2",
+      "expect": {
+        "phase": "contract_success",
+        "exit_code": 0
+      }
+    },
+    {
+      "contract_case": "ORDERING",
+      "golden": "tests/goldens/P0_C_ORDER/contract.sdsl2",
+      "expect": {
+        "phase": "contract_success",
+        "exit_code": 0
+      }
+    },
+    {
+      "contract_case": "P3_SCHEMA_VALIDATION_EXCERPT",
+      "golden": "tests/goldens/P3_SCHEMA_VALIDATION/contract.sdsl2",
+      "expect": {
+        "phase": "contract_success",
+        "exit_code": 0
+      }
+    },
+    {
+      "contract_case": "P5_EXECUTION_MESSAGE_EXCERPT",
+      "golden": "tests/goldens/P5_EXECUTION_MESSAGE/contract.sdsl2",
+      "expect": {
+        "phase": "contract_success",
+        "exit_code": 0
+      }
+    }
+  ]
+}

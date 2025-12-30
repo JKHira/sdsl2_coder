@@ -1,0 +1,39 @@
+@File { profile:"contract", id_prefix:"P5_EXECUTION_MESSAGE" }
+@Structure { id:"P5_C_BMOM_EMIDL_BM_EXECUTION_INTENT" }
+struct ExecutionIntent {
+  intent_id: IntentId,
+  signal_id: SignalId,
+  instrument_id: s,
+  side: "BUY"|"SELL",
+  quantity: Decimal,
+  timestamp_ns: i64,
+}
+@Structure { id:"P5_C_MSEP_EMIDL_L5_STRATEGY_SIGNAL" }
+struct StrategySignal {
+  signal_id: SignalId,
+  instrument_id: s,
+  direction: "BUY"|"SELL",
+  timestamp_ns: i64,
+}
+@Structure { id:"P5_C_PCC_EMIDL_ID_CLORD_ID" }
+struct ClOrdId { value: UUID }
+@Structure { id:"P5_C_PCC_EMIDL_ID_INTENT_ID" }
+struct IntentId { value: UUID }
+@Structure { id:"P5_C_PCC_EMIDL_ID_SIGNAL_ID" }
+struct SignalId { value: UUID }
+@Rule { id:"P5_C_BMOM_LINK_SIGNAL", bind:@Structure.P5_C_PCC_EMIDL_ID_SIGNAL_ID }
+@Rule {
+  id:"P5_C_PCC_CLORDID_L6",
+  bind:@Structure.P5_C_PCC_EMIDL_ID_INTENT_ID,
+  refs:[@Structure.P5_C_PCC_EMIDL_ID_CLORD_ID],
+}
+@Rule {
+  id:"P5_C_RIR_RETRY_MAX",
+  bind:@Structure.P5_C_PCC_EMIDL_ID_SIGNAL_ID,
+  contract:["CONTRACT.RetryLimit"],
+}
+@Rule {
+  id:"P5_C_SSK_REDIS_ORDERS",
+  bind:@Structure.P5_C_PCC_EMIDL_ID_CLORD_ID,
+  ssot:["SSOT.RedisKeyCatalog"],
+}

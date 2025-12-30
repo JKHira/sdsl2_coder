@@ -1,0 +1,9 @@
+[
+  {
+    "code": "E_ID_FORMAT_INVALID",
+    "message": "id must be RELID",
+    "expected": "UPPER_SNAKE_CASE",
+    "got": "bad",
+    "path": "/file/id_prefix"
+  }
+]

@@ -1,0 +1,9 @@
+[
+  {
+    "code": "E_FILE_HEADER_MISSING",
+    "message": "Missing @File header",
+    "expected": "@File",
+    "got": "missing",
+    "path": ""
+  }
+]

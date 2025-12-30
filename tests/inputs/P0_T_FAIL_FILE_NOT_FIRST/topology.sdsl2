@@ -1,0 +1,2 @@
+@Node { id:"ALPHA", kind:"component" }
+@File { profile:"topology", id_prefix:"P0_T_FAIL_FILE_NOT_FIRST" }

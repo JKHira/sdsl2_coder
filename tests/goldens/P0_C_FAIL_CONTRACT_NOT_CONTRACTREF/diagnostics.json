@@ -1,0 +1,9 @@
+[
+  {
+    "code": "E_CONTRACT_REFS_INVALID",
+    "message": "contract must be ContractRef list",
+    "expected": "CONTRACT.*",
+    "got": "BAD_TOKEN",
+    "path": "/structure/contract/0"
+  }
+]

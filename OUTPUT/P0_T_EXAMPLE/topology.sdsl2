@@ -1,0 +1,10 @@
+@File { profile:"topology", id_prefix:"P0_T_EXAMPLE" }
+@Node { id:"CONTROLLER", kind:"component" }
+@Node { id:"EXECUTOR", kind:"component" }
+@Edge {
+  id:"E_5B0D396CDF970D83",
+  from:@Node.CONTROLLER,
+  to:@Node.EXECUTOR,
+  direction:"req",
+  contract_refs:["CONTRACT.SignedControlCommand"],
+}

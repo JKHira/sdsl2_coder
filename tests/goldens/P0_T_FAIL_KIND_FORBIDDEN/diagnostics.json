@@ -1,0 +1,9 @@
+[
+  {
+    "code": "E_PROFILE_KIND_FORBIDDEN",
+    "message": "Kind not allowed in topology profile",
+    "expected": "File,DocMeta,Node,Edge,Rule",
+    "got": "Structure",
+    "path": "/annotations/1"
+  }
+]

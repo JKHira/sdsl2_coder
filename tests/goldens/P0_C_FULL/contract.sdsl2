@@ -1,0 +1,55 @@
+@File { profile:"contract", id_prefix:"P0_C_FULL" }
+@DocMeta {
+  id:"DOCMETA",
+  title:"Full Contract",
+  desc:"All metadata fields present",
+  refs:[@Structure.COMMAND],
+  ssot:["SSOT.SpecSheet"],
+}
+@Structure {
+  id:"COMMAND",
+  bind:@Interface.CONTROL,
+  title:"Command Payload",
+  desc:"Control command definition",
+  refs:[@Type.STATUS],
+  contract:["CONTRACT.CommandSpec"],
+  ssot:["SSOT.StructureDoc"],
+}
+struct Command {
+  id: s
+}
+@Interface {
+  id:"CONTROL",
+  title:"Control API",
+  desc:"Control boundary",
+  refs:[@Structure.COMMAND],
+  contract:["CONTRACT.ControlSpec"],
+  ssot:["SSOT.InterfaceDoc"],
+}
+interface Control {}
+@Function {
+  id:"SEND_COMMAND",
+  bind:@Interface.CONTROL,
+  title:"Send Command",
+  desc:"Dispatch command to control plane",
+  refs:[@Structure.COMMAND],
+}
+f send(Command): Command
+@Const { id:"RETRY_MAX", title:"Retry Limit" }
+const RETRY_MAX = 3
+@Type { id:"STATUS", desc:"Command status" }
+type STATUS = "OK"|"NG"
+@Dep {
+  id:"DEP_COMMAND_1FF89DC8EDF3",
+  bind:@Structure.COMMAND,
+  from:@Structure.COMMAND,
+  to:"CONTRACT.ExternalSpec",
+  ssot:["SSOT.DependencyDoc"],
+}
+@Rule {
+  id:"RULE_COMMAND",
+  bind:@Structure.COMMAND,
+  refs:[@Interface.CONTROL],
+  contract:["CONTRACT.RuleSpec"],
+  ssot:["SSOT.RuleDoc"],
+}

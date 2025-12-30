@@ -1,0 +1,13 @@
+@File { profile:"contract", id_prefix:"P3_SCHEMA_VALIDATION" }
+@Structure { id:"P3_C_VEB_VALIDATION_RESULT" }
+struct ValidationResult { valid:b, skip_reason:s?, error_code:s?, state_transition:s? }
+@Structure { id:"P3_C_VRTD_VERSIONED_REFERENCE" }
+struct VersionedReference { name:s, version:s? }
+@Const { id:"P3_C_MTRT_RELOAD_CHANNEL_CONST" }
+const RELOAD_CHANNEL = "master:reload"
+@Rule {
+  id:"P3_C_VEB_ERROR_CODE",
+  bind:@Structure.P3_C_VEB_VALIDATION_RESULT,
+  contract:["CONTRACT.ErrorCode"],
+  ssot:["SSOT.ValidationErrors"],
+}

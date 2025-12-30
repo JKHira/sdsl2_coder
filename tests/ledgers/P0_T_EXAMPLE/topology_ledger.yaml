@@ -1,0 +1,16 @@
+version: topology-ledger-v0.1
+schema_revision: 1
+file_header:
+  profile: topology
+  id_prefix: P0_T_EXAMPLE
+nodes:
+  - id: CONTROLLER
+    kind: component
+  - id: EXECUTOR
+    kind: component
+edges:
+  - from: CONTROLLER
+    to: EXECUTOR
+    direction: req
+    contract_refs:
+      - CONTRACT.SignedControlCommand

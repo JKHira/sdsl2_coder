@@ -1,0 +1,21 @@
+version: topology-ledger-v0.1
+schema_revision: 1
+file_header:
+  profile: topology
+  id_prefix: P0_T_FAIL_DUP_EDGE
+nodes:
+  - id: A
+    kind: component
+  - id: B
+    kind: component
+edges:
+  - from: A
+    to: B
+    direction: req
+    contract_refs:
+      - CONTRACT.Duplicate
+  - from: A
+    to: B
+    direction: req
+    contract_refs:
+      - CONTRACT.Duplicate

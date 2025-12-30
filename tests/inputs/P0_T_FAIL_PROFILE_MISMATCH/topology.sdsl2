@@ -1,0 +1,2 @@
+@File { profile:"contract", id_prefix:"P0_T_FAIL_PROFILE_MISMATCH" }
+@Node { id:"ALPHA", kind:"component" }

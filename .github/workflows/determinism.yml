@@ -1,0 +1,29 @@
+name: determinism
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  determinism:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Spec lock check
+        run: |
+          python scripts/check_spec_locks.py --locks spec_locks_v0_1.json
+      - name: Error catalog check
+        run: |
+          python scripts/check_error_catalog.py --errors coder_planning/errors_v0_1.md --diagnostics-glob "tests/goldens/**/diagnostics.json"
+      - name: Gate A check
+        run: |
+          python scripts/gate_a_check.py --input OUTPUT --input tests/goldens
+      - name: Determinism check
+        run: |
+          python scripts/determinism_check.py --manifest tests/determinism_manifest.json
+      - name: Gate B check
+        run: |
+          python scripts/gate_b_check.py --input OUTPUT --input tests/goldens

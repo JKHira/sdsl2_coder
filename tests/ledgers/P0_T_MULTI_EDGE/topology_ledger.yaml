@@ -1,0 +1,23 @@
+version: topology-ledger-v0.1
+schema_revision: 1
+file_header:
+  profile: topology
+  id_prefix: P0_T_MULTI_EDGE
+nodes:
+  - id: INGESTOR
+    kind: component
+  - id: PROCESSOR
+    kind: component
+  - id: STORAGE
+    kind: component
+edges:
+  - from: STORAGE
+    to: PROCESSOR
+    direction: rep
+    contract_refs:
+      - CONTRACT.StoreAck
+  - from: INGESTOR
+    to: PROCESSOR
+    direction: pub
+    contract_refs:
+      - CONTRACT.IngestEvent

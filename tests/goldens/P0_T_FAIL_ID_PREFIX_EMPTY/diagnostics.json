@@ -1,0 +1,9 @@
+[
+  {
+    "code": "E_ID_FORMAT_INVALID",
+    "message": "id_prefix required",
+    "expected": "non-empty string",
+    "got": "",
+    "path": "/file_header/id_prefix"
+  }
+]

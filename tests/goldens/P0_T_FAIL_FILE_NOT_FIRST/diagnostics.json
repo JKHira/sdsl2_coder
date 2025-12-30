@@ -1,0 +1,9 @@
+[
+  {
+    "code": "E_FILE_HEADER_NOT_FIRST",
+    "message": "@File must be first non-blank statement",
+    "expected": "first statement",
+    "got": "later statement",
+    "path": ""
+  }
+]

@@ -1,0 +1,9 @@
+[
+  {
+    "code": "E_EDGE_CONTRACT_REFS_EMPTY",
+    "message": "contract_refs must be non-empty",
+    "expected": "non-empty list",
+    "got": "empty",
+    "path": "/edges/0/contract_refs"
+  }
+]

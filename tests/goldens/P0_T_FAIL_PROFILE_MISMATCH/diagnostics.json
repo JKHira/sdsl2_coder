@@ -1,0 +1,9 @@
+[
+  {
+    "code": "E_PROFILE_INVALID",
+    "message": "profile must be topology",
+    "expected": "topology",
+    "got": "contract",
+    "path": "/file_header/profile"
+  }
+]

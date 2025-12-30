@@ -1,0 +1,18 @@
+version: topology-ledger-v0.1
+schema_revision: 1
+file_header:
+  profile: topology
+  id_prefix: P0_T_FAIL_OUTPUT_PATH
+nodes:
+  - id: SOURCE
+    kind: component
+  - id: SINK
+    kind: component
+edges:
+  - from: SOURCE
+    to: SINK
+    direction: req
+    contract_refs:
+      - CONTRACT.PathTest
+output:
+  topology_v2_path: /tmp/outside.sdsl2

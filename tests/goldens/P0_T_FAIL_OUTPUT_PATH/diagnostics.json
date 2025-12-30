@@ -1,0 +1,9 @@
+[
+  {
+    "code": "E_LEDGER_SCHEMA_INVALID",
+    "message": "output.topology_v2_path must be under OUTPUT",
+    "expected": "OUTPUT/...",
+    "got": "/tmp/outside.sdsl2",
+    "path": "/output/topology_v2_path"
+  }
+]

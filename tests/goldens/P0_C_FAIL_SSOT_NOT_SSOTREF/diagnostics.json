@@ -1,0 +1,9 @@
+[
+  {
+    "code": "E_TOKEN_PLACEMENT_VIOLATION",
+    "message": "ssot must be SSOTRef list",
+    "expected": "SSOT.*",
+    "got": "BAD_TOKEN",
+    "path": "/structure/ssot/0"
+  }
+]

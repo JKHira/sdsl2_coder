@@ -1,0 +1,25 @@
+{
+  "spec_lock_version": "v0.1",
+  "files": [
+    {
+      "path": "coder_planning/builder_writer_api_v0_1.md",
+      "sha256": "8cf5420e461acbc58605f6e80ade1223e0839ba39339a7cf0f7bf713f1e376eb"
+    },
+    {
+      "path": "coder_planning/errors_v0_1.md",
+      "sha256": "5686097b9dd3f7106347883ebec15da29eadf5b86112f81e67c390c8c4444056"
+    },
+    {
+      "path": "coder_planning/ledger_v0_1.md",
+      "sha256": "c22a9b407b56a814eabadf2b9589728bd59bc378f89a86e886e2b0b06223c747"
+    },
+    {
+      "path": "coder_planning/ledger_format/closed_set_v0_1.md",
+      "sha256": "08308bc9a1c197f6df6974e00a466ccfa9d83ee8c4f25c4d8879a2098c974a12"
+    },
+    {
+      "path": "coder_planning/ledger_format/topology_ledger_v0_1.md",
+      "sha256": "cbea008a862307bdcada30cb3080c4311e9c4db6d46160d0b3b1f647184fd447"
+    }
+  ]
+}

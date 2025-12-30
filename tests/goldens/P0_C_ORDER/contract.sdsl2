@@ -1,0 +1,13 @@
+@File { profile:"contract", id_prefix:"P0_C_ORDER" }
+@Structure { id:"A_STRUCT" }
+struct AStruct {}
+@Structure { id:"B_STRUCT" }
+struct BStruct {}
+@Interface { id:"BETA" }
+interface Beta {}
+@Function { id:"ZETA" }
+f zeta(): s
+@Const { id:"GAMMA" }
+const GAMMA = 1
+@Type { id:"OMEGA" }
+type OMEGA = "A"|"B"

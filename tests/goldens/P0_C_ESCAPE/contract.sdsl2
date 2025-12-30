@@ -1,0 +1,14 @@
+@File { profile:"contract", id_prefix:"P0_C_ESCAPE" }
+@DocMeta {
+  id:"DOCMETA",
+  title:"Quote \"Q\"",
+  desc:"Path C:\\Temp\\file",
+}
+@Structure {
+  id:"ESCAPE",
+  title:"Title \"T\"",
+  desc:"Slash \\\\ and quote \"",
+}
+struct Escape {
+  note: s
+}

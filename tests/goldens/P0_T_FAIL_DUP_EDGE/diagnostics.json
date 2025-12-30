@@ -1,0 +1,51 @@
+[
+  {
+    "code": "E_ID_FORMAT_INVALID",
+    "message": "Node id must be RELID",
+    "expected": "UPPER_SNAKE_CASE",
+    "got": "A",
+    "path": "/nodes/0/id"
+  },
+  {
+    "code": "E_ID_FORMAT_INVALID",
+    "message": "Node id must be RELID",
+    "expected": "UPPER_SNAKE_CASE",
+    "got": "B",
+    "path": "/nodes/1/id"
+  },
+  {
+    "code": "E_EDGE_FROM_TO_UNRESOLVED",
+    "message": "Edge from must reference existing node",
+    "expected": "existing node id",
+    "got": "A",
+    "path": "/edges/0/from"
+  },
+  {
+    "code": "E_EDGE_FROM_TO_UNRESOLVED",
+    "message": "Edge to must reference existing node",
+    "expected": "existing node id",
+    "got": "B",
+    "path": "/edges/0/to"
+  },
+  {
+    "code": "E_EDGE_FROM_TO_UNRESOLVED",
+    "message": "Edge from must reference existing node",
+    "expected": "existing node id",
+    "got": "A",
+    "path": "/edges/1/from"
+  },
+  {
+    "code": "E_EDGE_FROM_TO_UNRESOLVED",
+    "message": "Edge to must reference existing node",
+    "expected": "existing node id",
+    "got": "B",
+    "path": "/edges/1/to"
+  },
+  {
+    "code": "E_EDGE_DUPLICATE",
+    "message": "Duplicate edge (same PK)",
+    "expected": "unique PK",
+    "got": "A->B",
+    "path": "/edges/1"
+  }
+]

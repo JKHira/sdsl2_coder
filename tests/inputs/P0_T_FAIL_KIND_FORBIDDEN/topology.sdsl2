@@ -1,0 +1,2 @@
+@File { profile:"topology", id_prefix:"P0_T_FAIL_KIND_FORBIDDEN" }
+@Structure { id:"FOO", title:"x" }

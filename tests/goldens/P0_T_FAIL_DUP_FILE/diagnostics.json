@@ -1,0 +1,9 @@
+[
+  {
+    "code": "E_FILE_HEADER_DUPLICATE",
+    "message": "Duplicate @File header",
+    "expected": "single @File",
+    "got": "multiple",
+    "path": ""
+  }
+]

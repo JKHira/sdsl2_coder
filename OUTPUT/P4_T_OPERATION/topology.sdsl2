@@ -1,0 +1,13 @@
+@File { profile:"topology", id_prefix:"P4_T_OPERATION" }
+@Node { id:"P4_T_ADL_AUDIT_LOGGER", kind:"component" }
+@Node { id:"P4_T_AER_ADMIN_ROUTER", kind:"component" }
+@Node { id:"P4_T_AER_MASTER_RELOAD_CHANNEL", kind:"component" }
+@Node { id:"P4_T_AGWR_RPC_REDIS_RPC_HANDLER", kind:"component" }
+@Node { id:"P4_T_ATR_TEST_ACCEPTANCE_TEST_RUNNER", kind:"component" }
+@Node { id:"P4_T_CPLI_PARAMETER_CHANGE_HANDLER", kind:"component" }
+@Node { id:"P4_T_DSSE_EVENT_ROUTER", kind:"component" }
+@Node { id:"P4_T_HAPIC_HEALTH_ROUTER", kind:"component" }
+@Node { id:"P4_T_MTLS_CLIENT_CERT_MIDDLEWARE", kind:"component" }
+@Node { id:"P4_T_OPS_OPERATIONS_SERVICE", kind:"component" }
+@Node { id:"P4_T_RCF_POSITION_RECONCILER", kind:"component" }
+@Node { id:"P4_T_RCF_RECONCILIATION_SCHEDULER", kind:"component" }

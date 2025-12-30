@@ -1,0 +1,9 @@
+[
+  {
+    "code": "E_RULE_BIND_REQUIRED",
+    "message": "bind is required",
+    "expected": "@Kind.RELID",
+    "got": "missing",
+    "path": "/rule/bind"
+  }
+]

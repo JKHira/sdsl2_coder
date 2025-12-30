@@ -1,0 +1,9 @@
+[
+  {
+    "code": "E_BIND_TARGET_NOT_FOUND",
+    "message": "refs must be InternalRef list",
+    "expected": "@Kind.RELID",
+    "got": "NOT_A_REF",
+    "path": "/structure/refs/0"
+  }
+]
