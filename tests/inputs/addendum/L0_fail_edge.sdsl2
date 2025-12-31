@@ -1,0 +1,4 @@
+@File { profile:"topology", id_prefix:"ADD_L0_FAIL_EDGE", stage:"L0" }
+@Node { id:"A", kind:"component" }
+@Node { id:"B", kind:"component" }
+@Edge { id:"E1", from:@Node.A, to:@Node.B, direction:"call", contract_refs:["CONTRACT.EdgeFact"] }

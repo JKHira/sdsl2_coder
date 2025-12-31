@@ -102,3 +102,9 @@ V2-D: Tooling / CLI (optional)
 
 v0.2 scope decision:
 - Locked in `coder_planning/v0_2_scope_decision.md`.
+
+## Addendum Adoption (L0/L1/L2)
+- Adopt addendum as out-of-band policy (no grammar change).
+- Add repo policy file and CI step for stage/edgeintent/placeholder rules.
+- Add fixtures/goldens for L0/L1/L2 and Context Pack.
+- Lock adoption scope in `coder_planning/addendum_adoption_v0_1.md`.

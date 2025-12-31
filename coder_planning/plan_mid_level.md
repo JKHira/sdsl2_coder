@@ -92,3 +92,16 @@ Phase V2-D: Tooling/CLI (optional)
 
 v0.2 scope decision:
 - Locked in `coder_planning/v0_2_scope_decision.md`.
+
+# Addendum Adoption (L0/L1/L2)
+
+Phase G: Policy + Lint Integration
+1) Add repository policy file and policy reader.
+2) Implement stage rules (@File.stage) for topology profile.
+3) Implement @EdgeIntent validation and key restrictions.
+4) Enforce placeholder ban in SDSL statements.
+5) Add CI step for addendum checks (out-of-band).
+
+Phase H: Fixtures + Context Pack
+6) Add L0/L1/L2 fixtures and golden outputs.
+7) Add Context Pack extraction fixture + golden.

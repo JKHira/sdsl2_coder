@@ -6,7 +6,21 @@ Guidance for AI assistants working in this project. Core principles for high-qua
 ## Must:
 - When users ask questions, always answer in Japanese language.
 - If the user does not explicitly ask for something to be done and the intent is considered to be a question, determine that it is a question and will not perform any tasks or editing actions.
-- 
+
+## IMPORTANT Tips for writing concise and precise manuals in English.
+
+- Fix purpose and scope in 1–2 lines at the top (Scope / Non‑scope).
+- Write in the order: Definitions → Rules → Examples.
+- Use consistent modal verbs: MUST / SHOULD / MAY; keep rationale minimal.
+- Avoid ambiguity; close vocabularies, list prohibitions, and state ordering rules.
+- Use the same wording for the same meaning; avoid paraphrases.
+- Prefer bullet lists; split long sentences.
+- Provide only one example, and label it Non‑normative.
+- Reference existing specs tersely (e.g., “see Manual 9.4”).
+- State authority and precedence explicitly.
+- Reduce token use by replacing repeated explanations with references.
+- Sometimes examples are unnecessary. If a rule is fully defined by a closed set, explicit prohibitions, and fixed ordering—leaving no ambiguity in interpretation or implementation—then normative text alone is sufficient and clearer.
+
 ⸻
 
 ## 💎 CRITICAL: Respect User Time
