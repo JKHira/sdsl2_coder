@@ -5,7 +5,7 @@ file_header:
   id_prefix: P4_T_OPERATION
 source:
   input_path: C_T/Topology/P4_OPERATION_SDSL_TOPOLOGY.md
-  evidence_note: "Edges are explicit facts derived from @Function/@Rule in P4_OPERATION (OPS->SCHED via P4_T_RCF_OPS_ON_STATE_CHANGE + CONTRACT.SYSTEM_PHASE; SCHED->RECONCILER via reconciler field + CONTRACT.SYSTEM_STATE; AER_ADMIN->MASTER_RELOAD via redis.publish + CONTRACT.MASTER_RELOAD_CHANNEL)."
+  evidence_note: "See tests/ledgers/P4_T_OPERATION_EDGE_FACTS_NOTES.md"
 nodes:
   - id: P4_T_ADL_AUDIT_LOGGER
     kind: component

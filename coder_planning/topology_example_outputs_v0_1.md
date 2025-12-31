@@ -8,5 +8,7 @@
 - Source SSOT: `C_T/Topology/P4_OPERATION_SDSL_TOPOLOGY.md`
 - Scope: @Structure tags and explicit edge facts (no inference).
 - Notes: Node kind is set to "component" for all extracted nodes in v0.1.
+- Edge policy: `coder_planning/topology_edge_facts_policy_v0_1.md`
+- Evidence notes: `tests/ledgers/P4_T_OPERATION_EDGE_FACTS_NOTES.md`
 
 Operational entrypoint: see `README.md` (Open Interpreter Quickstart).
