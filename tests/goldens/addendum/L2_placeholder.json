@@ -1,0 +1,9 @@
+[
+  {
+    "code": "ADD_PLACEHOLDER_IN_SDSL",
+    "expected": "no placeholders",
+    "got": "placeholder = None",
+    "message": "Placeholder not allowed in SDSL statements",
+    "path": "/statements/2"
+  }
+]

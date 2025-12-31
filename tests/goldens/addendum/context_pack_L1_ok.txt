@@ -1,0 +1,13 @@
+Context Pack
+Header:
+  target: @Node.NODE_A
+  profile: topology
+  stage: L1
+Nodes:
+  - rel_id: NODE_A, canon_id: ADD_L1_OK_NODE_A
+  - rel_id: NODE_B, canon_id: ADD_L1_OK_NODE_B
+Edges:
+  - from: @Node.NODE_A, to: @Node.NODE_B, direction: "call", channel: None, contract_refs: ["CONTRACT.EdgeFact"]
+Contracts:
+  - "CONTRACT.EdgeFact"
+Open TODO:

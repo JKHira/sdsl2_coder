@@ -1,0 +1,53 @@
+{
+  "version": "addendum-manifest-v0.1",
+  "policy": "../.sdsl/policy.yaml",
+  "cases": [
+    {
+      "input": "inputs/addendum/L0_ok.sdsl2",
+      "expect": {
+        "exit_code": 0
+      }
+    },
+    {
+      "input": "inputs/addendum/L1_ok.sdsl2",
+      "expect": {
+        "exit_code": 0
+      }
+    },
+    {
+      "input": "inputs/addendum/L1_edgeintent.sdsl2",
+      "expect": {
+        "exit_code": 0,
+        "diagnostics_golden": "goldens/addendum/L1_edgeintent.json"
+      }
+    },
+    {
+      "input": "inputs/addendum/L0_fail_edge.sdsl2",
+      "expect": {
+        "exit_code": 2,
+        "diagnostics_golden": "goldens/addendum/L0_fail_edge.json"
+      }
+    },
+    {
+      "input": "inputs/addendum/L0_terminal_forbidden.sdsl2",
+      "expect": {
+        "exit_code": 2,
+        "diagnostics_golden": "goldens/addendum/L0_terminal_forbidden.json"
+      }
+    },
+    {
+      "input": "inputs/addendum/L0_kind_forbidden.sdsl2",
+      "expect": {
+        "exit_code": 2,
+        "diagnostics_golden": "goldens/addendum/L0_kind_forbidden.json"
+      }
+    },
+    {
+      "input": "inputs/addendum/L2_placeholder.sdsl2",
+      "expect": {
+        "exit_code": 2,
+        "diagnostics_golden": "goldens/addendum/L2_placeholder.json"
+      }
+    }
+  ]
+}

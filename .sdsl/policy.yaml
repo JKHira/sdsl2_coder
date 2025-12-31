@@ -1,0 +1,13 @@
+addendum:
+  enabled: true
+stage_policy:
+  allow_l0_terminal: false
+  l0_kind_mode: fail
+  l1_edgeintent_mode: diag
+  edgeintent_unknown_keys: fail
+  allow_mixed_stages: true
+  repo_min_stage: "L0"
+  allow_contract_stage: false
+manual_policy:
+  manual_mode: strict
+  manual_lint_level: error

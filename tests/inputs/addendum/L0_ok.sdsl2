@@ -1,4 +1,4 @@
 @File { profile:"topology", id_prefix:"ADD_L0_OK", stage:"L0" }
-@Node { id:"A", kind:"component" }
-@Node { id:"B", kind:"component" }
-@EdgeIntent { id:"E1", from:@Node.A, to:@Node.B, direction:"call", note:"draft" }
+@Node { id:"NODE_A", kind:"component" }
+@Node { id:"NODE_B", kind:"component" }
+@EdgeIntent { id:"EDGE_INTENT_1", from:@Node.NODE_A, to:@Node.NODE_B, direction:"call", note:"draft" }

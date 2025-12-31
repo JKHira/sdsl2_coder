@@ -21,6 +21,12 @@ jobs:
       - name: Gate A check
         run: |
           python scripts/gate_a_check.py --input OUTPUT --input tests/goldens
+      - name: Addendum check
+        run: |
+          python scripts/addendum_test.py --manifest tests/addendum_manifest.json
+      - name: Context pack check
+        run: |
+          python scripts/context_pack_test.py --manifest tests/context_pack_manifest.json
       - name: Determinism check
         run: |
           python scripts/determinism_check.py --manifest tests/determinism_manifest.json

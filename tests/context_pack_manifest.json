@@ -1,0 +1,11 @@
+{
+  "version": "context-pack-manifest-v0.1",
+  "cases": [
+    {
+      "input": "inputs/addendum/L1_ok.sdsl2",
+      "target": "@Node.NODE_A",
+      "hops": 1,
+      "golden": "goldens/addendum/context_pack_L1_ok.txt"
+    }
+  ]
+}

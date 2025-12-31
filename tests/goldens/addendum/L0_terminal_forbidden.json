@@ -1,0 +1,16 @@
+[
+  {
+    "code": "ADD_L0_KIND_FORBIDDEN",
+    "expected": "File|Node|EdgeIntent",
+    "got": "Terminal",
+    "message": "kind not allowed in L0",
+    "path": "/annotations/2"
+  },
+  {
+    "code": "ADD_L0_TERMINAL_FORBIDDEN",
+    "expected": "no @Terminal",
+    "got": "@Terminal",
+    "message": "@Terminal forbidden in L0",
+    "path": "/annotations/2"
+  }
+]

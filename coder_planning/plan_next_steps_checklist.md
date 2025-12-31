@@ -53,7 +53,7 @@ Note: Operational entrypoint is in `README.md` (Open Interpreter Quickstart).
 ## Addendum Adoption (L0/L1/L2)
 - [x] Lock adoption scope in `coder_planning/addendum_adoption_v0_1.md`.
 - [x] Implement policy discovery reader (ADD_POLICY_NOT_FOUND DIAG).
-- [ ] Add repo policy file and CI wiring for addendum checks.
+- [x] Add repo policy file and CI wiring for addendum checks.
 - [x] Implement addendum lint checks (stage/edgeintent/placeholder).
 - [x] Add L0/L1/L2 fixtures.
-- [ ] Add Context Pack golden outputs.
+- [x] Add Context Pack golden outputs.

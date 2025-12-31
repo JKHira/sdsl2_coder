@@ -1,0 +1,9 @@
+[
+  {
+    "code": "ADD_L0_KIND_FORBIDDEN",
+    "expected": "File|Node|EdgeIntent",
+    "got": "Rule",
+    "message": "kind not allowed in L0",
+    "path": "/annotations/2"
+  }
+]

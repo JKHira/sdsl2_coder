@@ -1,0 +1,9 @@
+[
+  {
+    "code": "ADD_L1_EDGEINTENT_FORBIDDEN",
+    "expected": "no @EdgeIntent",
+    "got": "@EdgeIntent",
+    "message": "@EdgeIntent forbidden in L1",
+    "path": "/annotations/3"
+  }
+]
