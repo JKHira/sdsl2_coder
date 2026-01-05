@@ -1,0 +1,3 @@
+Edge: NODE_A -> NODE_B
+Contract: CONTRACT.MINIMAL_EVENT
+Decision: EDGE_A_B

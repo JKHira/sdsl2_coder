@@ -1,0 +1,28 @@
+schema_version: "0.1"
+source_rev: 2826191ae555a024363eea5b768e1a24d06c7073
+input_hash: "sha256:6104ff6dae8f1e7347c815951a983078ce2a6b5fc04b18af9b046a6e95305f8a"
+generator_id: draft_builder_v0_1
+scope:
+  kind: file
+  value: sdsl2/topology/P1_T_ORCHESTRATION_CORE_L0.sdsl2
+nodes_proposed:
+  []
+edge_intents_proposed:
+  -
+    id: P1_T_INTENT_SAMPLE
+    from: P1_T_GT_GUARDED_TRADING_MANAGER_CLASS
+    to: P1_T_SSM_SYSTEM_STATE_MACHINE_CLASS
+    direction: call
+    note: L0 sample intent
+  -
+    id: P1_T_INTENT_SAMPLE_2
+    from: P1_T_GTM_GUARDED_TRADING_MANAGER_CLASS
+    to: P1_T_CB_RELIABLE_EVENT_DISPATCHER_CLASS
+    direction: call
+    note: L0 second intent
+contract_candidates:
+  []
+questions:
+  []
+conflicts:
+  []

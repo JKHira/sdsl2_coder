@@ -1,0 +1,20 @@
+schema_version: "1.0"
+source_rev: 2826191ae555a024363eea5b768e1a24d06c7073
+input_hash: "sha256:c88cd6bca6d31abc0e5de5cec32fd627153231b41a8546a901013718e40efec3"
+scope:
+  kind: file
+  value: sdsl2/topology/MINIMAL_L0.sdsl2
+evidence:
+  EDGE_A_B:
+    -
+      source_path: ""
+      locator: ""
+      content_hash: ""
+      claims:
+        -
+          kind: edge
+          decision_id: EDGE_A_B
+        -
+          kind: contract_ref
+          decision_id: EDGE_A_B
+          value: CONTRACT.MINIMAL_EVENT

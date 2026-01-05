@@ -1,0 +1,32 @@
+version: topology-ledger-v0.1
+schema_revision: 1
+file_header:
+  profile: topology
+  id_prefix: P1_T_ORCHESTRATION_CORE_L0
+source:
+  input_path: C_T/Topology/P1_ORCHESTRATION_CORE_SDSL_TOPOLOGY.md
+  evidence_note: "full file / @Structure tokens only / no edges"
+nodes:
+  - id: P1_T_BAF_BASELINE_ACTOR_CLASS
+    kind: component
+  - id: P1_T_BAF_SIMPLE_BASELINE_ACTOR_CLASS
+    kind: component
+  - id: P1_T_BA_BASELINE_ACTOR_CLASS
+    kind: component
+  - id: P1_T_CBED__RELIABLE_EVENT_DISPATCHER_CLASS
+    kind: component
+  - id: P1_T_CB_RELIABLE_EVENT_DISPATCHER_CLASS
+    kind: component
+  - id: P1_T_GTM_GUARDED_TRADING_MANAGER_CLASS
+    kind: component
+  - id: P1_T_GT_GUARDED_TRADING_MANAGER_CLASS
+    kind: component
+  - id: P1_T_HAF_HEALTH_AGGREGATOR_CLASS
+    kind: component
+  - id: P1_T_SME_SAFE_MODE_ENFORCER_CLASS
+    kind: component
+  - id: P1_T_SM_SAFE_MODE_ENFORCER_CLASS
+    kind: component
+  - id: P1_T_SSM_SYSTEM_STATE_MACHINE_CLASS
+    kind: component
+edges: []

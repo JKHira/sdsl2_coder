@@ -1,0 +1,20 @@
+--- /Volumes/SSD/Dev_Projects/SDSL2_Coder/project_x/sdsl2/topology/P1_T_ORCHESTRATION_CORE_L0.sdsl2
++++ /Volumes/SSD/Dev_Projects/SDSL2_Coder/project_x/sdsl2/topology/P1_T_ORCHESTRATION_CORE_L0.sdsl2
+@@ -4,3 +4,17 @@
+ @Node { id:"P1_T_GTM_GUARDED_TRADING_MANAGER_CLASS", kind:"component" }
+ @Node { id:"P1_T_GT_GUARDED_TRADING_MANAGER_CLASS", kind:"component" }
+ @Node { id:"P1_T_SSM_SYSTEM_STATE_MACHINE_CLASS", kind:"component" }
++@EdgeIntent {
++  id:"P1_T_INTENT_SAMPLE",
++  from:@Node.P1_T_GT_GUARDED_TRADING_MANAGER_CLASS,
++  to:@Node.P1_T_SSM_SYSTEM_STATE_MACHINE_CLASS,
++  direction:"call",
++  note:"L0 sample intent",
++}
++@EdgeIntent {
++  id:"P1_T_INTENT_SAMPLE_2",
++  from:@Node.P1_T_GTM_GUARDED_TRADING_MANAGER_CLASS,
++  to:@Node.P1_T_CB_RELIABLE_EVENT_DISPATCHER_CLASS,
++  direction:"call",
++  note:"L0 second intent",
++}

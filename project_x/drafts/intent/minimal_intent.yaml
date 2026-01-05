@@ -1,0 +1,15 @@
+schema_version: "0.1"
+source_rev: "demo"
+input_hash: "sha256:638163ff7dabf96466cec88b79b2c10df1b224ce1fc2bf9161768445f5c8ece3"
+generator_id: "demo"
+scope:
+  kind: file
+  value: sdsl2/topology/MINIMAL_L0.sdsl2
+nodes_proposed: []
+edge_intents_proposed:
+  - id: EDGE_A_B
+    from: NODE_A
+    to: NODE_B
+    direction: req
+questions: []
+conflicts: []

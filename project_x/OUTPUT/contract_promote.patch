@@ -1,0 +1,16 @@
+--- /Volumes/SSD/Dev_Projects/SDSL2_Coder/project_x/sdsl2/contract/MINIMAL_C.sdsl2
++++ /Volumes/SSD/Dev_Projects/SDSL2_Coder/project_x/sdsl2/contract/MINIMAL_C.sdsl2
+@@ -4,4 +4,13 @@
+ struct MinimalEvent {
+   id: s,
+ }
++@Structure { id:"MINIMAL_EVENT_EXTRA" }
++struct MinimalEventExtra {
++  value: s,
++}
++@Rule {
++  id:"MINIMAL_EVENT_EXTRA_RULE",
++  bind:@Structure.MINIMAL_EVENT_EXTRA,
++  contract:["CONTRACT.MINIMAL_EVENT"],
++}
+ @Rule { id:"MINIMAL_EVENT_RULE", bind:@Structure.MINIMAL_EVENT }

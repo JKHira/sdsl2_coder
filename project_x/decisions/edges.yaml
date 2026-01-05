@@ -1,0 +1,15 @@
+schema_version: "1.0"
+provenance:
+  author: "demo"
+  reviewed_by: "demo"
+  source_link: "docs/minimal.md"
+scope:
+  kind: file
+  value: sdsl2/topology/MINIMAL_L0.sdsl2
+edges:
+  - id: EDGE_A_B
+    from: NODE_A
+    to: NODE_B
+    direction: req
+    contract_refs:
+      - "CONTRACT.MINIMAL_EVENT"

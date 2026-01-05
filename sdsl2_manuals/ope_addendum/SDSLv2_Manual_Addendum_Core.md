@@ -124,3 +124,16 @@ Open TODO:
 ## Conflicts
 
 - None recorded.
+
+## Common Operational YAML Conventions
+
+Scope: Common conventions for operational YAML artifacts in this repository.
+Non-scope: SDSLv2 grammar or semantics.
+
+Definitions
+- Operational YAML Artifact: drafts/*.yaml, decisions/edges.yaml, decisions/contracts.yaml,
+  decisions/evidence.yaml, policy/exceptions.yaml, .sdsl/policy.yaml, decisions/decision_log.yaml.
+
+Rules
+- Operational YAML Artifacts MUST be YAML block style only (no flow style).
+- Operational YAML Artifacts MUST be UTF-8 and LF-normalized.

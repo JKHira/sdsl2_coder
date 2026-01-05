@@ -10,4 +10,4 @@ Edges:
   - from: @Node.NODE_A, to: @Node.NODE_B, direction: "call", channel: None, contract_refs: ["CONTRACT.EdgeFact"]
 Contracts:
   - "CONTRACT.EdgeFact"
-Open TODO:
+Open TODO: {}

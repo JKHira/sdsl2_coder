@@ -1,0 +1,13 @@
+Context Pack
+Header:
+  target: @Node.NODE_A
+  profile: topology
+  stage: L2
+Nodes:
+  - rel_id: NODE_A, canon_id: MINI_T_EXAMPLE_NODE_A
+  - rel_id: NODE_B, canon_id: MINI_T_EXAMPLE_NODE_B
+Edges:
+  - from: @Node.NODE_A, to: @Node.NODE_B, direction: "req", channel: None, contract_refs: ["CONTRACT.MINIMAL_EVENT"]
+Contracts:
+  - "CONTRACT.MINIMAL_EVENT"
+Open TODO: {}

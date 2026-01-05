@@ -39,15 +39,15 @@ Note: Operational entrypoint is in `README.md` (Open Interpreter Quickstart).
 - [x] Verify determinism_check (2x run hash match + golden match).
 - [x] Verify Gate A/B pass for OUTPUT/ and tests/goldens/.
 - [x] Verify diff gate passes (allowlist-only changes).
-- [ ] Update spec locks if any locked files changed.
+- [x] Update spec locks if any locked files changed.
 
 ## v0.2 Planning (Locked, single source)
 - [x] Define spec bump triggers (判定可能).
 - [x] Define spec locks / versioning policy for v0.2.
-- [ ] Decide Gate C transform scope and spec updates (optional).
-- [ ] Add determinism cases for any transform outputs (optional).
-- [ ] Decide Contract ledger introduction and SSOT policy (optional).
-- [ ] Update diff gate allowlist rules if inputs expand.
+- [x] Decide Gate C transform scope and spec updates (optional) -> No (defer).
+- [x] Add determinism cases for any transform outputs (optional) -> N/A (No transform).
+- [x] Decide Contract ledger introduction and SSOT policy (optional) -> No (defer).
+- [x] Update diff gate allowlist rules if inputs expand -> No change.
 - [x] Lock v0.2 scope decision (Yes/No for optional items).
 
 ## Addendum Adoption (L0/L1/L2)

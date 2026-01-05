@@ -1,0 +1,6 @@
+@File { profile:"topology", id_prefix:"P1_T_ORCHESTRATION_CORE_L0" }
+@Node { id:"P1_T_CBED__RELIABLE_EVENT_DISPATCHER_CLASS", kind:"component" }
+@Node { id:"P1_T_CB_RELIABLE_EVENT_DISPATCHER_CLASS", kind:"component" }
+@Node { id:"P1_T_GTM_GUARDED_TRADING_MANAGER_CLASS", kind:"component" }
+@Node { id:"P1_T_GT_GUARDED_TRADING_MANAGER_CLASS", kind:"component" }
+@Node { id:"P1_T_SSM_SYSTEM_STATE_MACHINE_CLASS", kind:"component" }

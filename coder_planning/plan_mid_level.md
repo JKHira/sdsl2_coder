@@ -92,6 +92,9 @@ Phase V2-D: Tooling/CLI (optional)
 
 v0.2 scope decision:
 - Locked in `coder_planning/v0_2_scope_decision.md`.
+- Gate C transform: No (defer).
+- Contract ledger: No (defer).
+- diff gate allowlist: No change.
 
 # Addendum Adoption (L0/L1/L2)
 

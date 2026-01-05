@@ -336,8 +336,12 @@ def extract_context_pack(path: Path, target: str, hops: int = 1) -> str:
     for token in contracts:
         out.append(f"  - {_quote(token)}")
 
-    out.append("Open TODO:")
-    for intent in scope_intents:
-        out.append(f"  - edge_intent: {_format_edge_intent(intent)}")
+    if scope_intents:
+        out.append("Open TODO:")
+        out.append("  edge_intents:")
+        for intent in scope_intents:
+            out.append(f"    - {intent.intent_id}")
+    else:
+        out.append("Open TODO: {}")
 
     return "\n".join(out) + "\n"
