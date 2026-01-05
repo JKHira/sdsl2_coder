@@ -47,6 +47,7 @@ Non-scope: Tool implementation details.
 - SCHEMA-MIGRATION sets severity for MAJOR mismatch diagnostics; within policy.schema.migration_window_days -> DIAG, after expiry -> FAIL.
 - EVIDENCE-REPAIR is proposal-only; multiple candidates for a single item is FAIL.
 - TOKEN-REGISTRY validates "SSOT.*" and "CONTRACT.*" tokens against registries/allowlists.
+- UNRESOLVED#/ targets are allowed pre-publish; publish MUST fail if any UNRESOLVED#/ remains.
 - L2-EXCEPTION-CHECK validates exception schema, expiry, scope/target uniqueness, and policy caps.
 - DETERMINISM checks normalization, stable ordering, and identical output on rerun under fixed environment.
 

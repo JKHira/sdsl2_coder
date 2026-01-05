@@ -5,11 +5,12 @@ Purpose: minimal, reusable safeguards to prevent authority violations, unsafe wr
 ## Authority and Write Rules
 - SSOT is read-only. Any SSOT change must be unified diff only.
 - Tool outputs are non-authoritative and must be reproducible.
-- Default allowed write roots: `project_root/drafts`, `project_root/ledger`, `project_root/OUTPUT`.
+- Default allowed write roots: `project_root/drafts`, `project_root/drafts/ledger`, `project_root/OUTPUT`.
 - Decisions are explicit inputs; write only when role/step allows it.
 
 ## Project Root Isolation
 - Every tool accepts `--project-root` and resolves all relative paths under it.
+- `project_root` is the repository root (Draft Root = `drafts/` at repo root).
 - Reject any input path outside `project_root` (prevent leaks/mixed scope).
 - Reject output paths outside allowed roots.
 - If `--out` is a directory, FAIL (avoid accidental overwrite).

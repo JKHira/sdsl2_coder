@@ -184,6 +184,286 @@ def _extract_tokens_from_registry(data: object, prefix: str) -> set[str]:
     return tokens
 
 
+def _collect_registry_entries(
+    data: object,
+    prefix: str,
+    diags: list[Diagnostic],
+) -> tuple[set[str], list[tuple[str, str]]]:
+    tokens: set[str] = set()
+    entries: list[tuple[str, str]] = []
+    items: list[object] = []
+    if isinstance(data, dict):
+        if isinstance(data.get("entries"), list):
+            items = data.get("entries")  # type: ignore[assignment]
+        else:
+            keys = [k for k in data.keys() if isinstance(k, str)]
+            if keys and all(k.startswith(prefix) for k in keys):
+                for key in keys:
+                    value = data.get(key)
+                    items.append({"token": key, "target": value})
+            elif isinstance(data.get("tokens"), list):
+                items = data.get("tokens")  # type: ignore[assignment]
+    elif isinstance(data, list):
+        items = data
+
+    for idx, item in enumerate(items):
+        if isinstance(item, str):
+            if not item.startswith(prefix):
+                _diag(
+                    diags,
+                    "E_TOKEN_REGISTRY_ENTRY_INVALID",
+                    "registry token invalid",
+                    f"{prefix}*",
+                    str(item),
+                    json_pointer("entries", str(idx)),
+                )
+                continue
+            tokens.add(item)
+            _diag(
+                diags,
+                "E_TOKEN_REGISTRY_TARGET_MISSING",
+                "registry target missing",
+                "token + target",
+                "missing",
+                json_pointer("entries", str(idx), "target"),
+            )
+            continue
+        if isinstance(item, dict):
+            token = item.get("token")
+            target = item.get("target")
+            if not isinstance(token, str) or not token.startswith(prefix):
+                _diag(
+                    diags,
+                    "E_TOKEN_REGISTRY_ENTRY_INVALID",
+                    "registry token invalid",
+                    f"{prefix}*",
+                    str(token),
+                    json_pointer("entries", str(idx), "token"),
+                )
+                continue
+            tokens.add(token)
+            if not isinstance(target, str) or not target:
+                _diag(
+                    diags,
+                    "E_TOKEN_REGISTRY_TARGET_MISSING",
+                    "registry target missing",
+                    "token + target",
+                    str(target),
+                    json_pointer("entries", str(idx), "target"),
+                )
+                continue
+            entries.append((token, target))
+            continue
+        _diag(
+            diags,
+            "E_TOKEN_REGISTRY_ENTRY_INVALID",
+            "registry entry invalid",
+            "token string or {token,target}",
+            type(item).__name__,
+            json_pointer("entries", str(idx)),
+        )
+    return tokens, entries
+
+
+def _decode_json_pointer(pointer: str) -> list[str] | None:
+    if pointer == "/":
+        return []
+    if not pointer.startswith("/"):
+        return None
+    parts = pointer.split("/")[1:]
+    decoded: list[str] = []
+    for part in parts:
+        if "~" in part:
+            part = part.replace("~1", "/").replace("~0", "~")
+        decoded.append(part)
+    return decoded
+
+
+def _validate_target(
+    project_root: Path,
+    token: str,
+    target: str,
+    hard_diags: list[Diagnostic],
+    soft_diags: list[Diagnostic],
+    fail_on_unresolved: bool,
+) -> None:
+    if target == "UNRESOLVED#/":
+        if fail_on_unresolved:
+            _diag(
+                hard_diags,
+                "E_TOKEN_REGISTRY_TARGET_UNRESOLVED",
+                "registry target unresolved",
+                "resolved target",
+                target,
+                json_pointer("targets", token),
+            )
+        else:
+            _diag(
+                soft_diags,
+                "E_TOKEN_REGISTRY_TARGET_UNRESOLVED",
+                "registry target unresolved",
+                "resolved target",
+                target,
+                json_pointer("targets", token),
+            )
+        return
+    if "#" not in target:
+        _diag(
+            hard_diags,
+            "E_TOKEN_REGISTRY_TARGET_INVALID",
+            "target must contain #",
+            "<path>#/<json_pointer>",
+            target,
+            json_pointer("targets", token),
+        )
+        return
+    path_part, pointer = target.split("#", 1)
+    if not path_part or path_part.startswith("/") or ".." in Path(path_part).parts:
+        _diag(
+            hard_diags,
+            "E_TOKEN_REGISTRY_TARGET_INVALID",
+            "target path must be repo-relative",
+            "repo-relative path",
+            target,
+            json_pointer("targets", token),
+        )
+        return
+    if not pointer.startswith("/"):
+        _diag(
+            hard_diags,
+            "E_TOKEN_REGISTRY_TARGET_INVALID",
+            "json_pointer must start with '/'",
+            "#/<json_pointer>",
+            target,
+            json_pointer("targets", token),
+        )
+        return
+    if not path_part.endswith(".json"):
+        _diag(
+            hard_diags,
+            "E_TOKEN_REGISTRY_TARGET_INVALID",
+            "target path must be .json",
+            "*.json",
+            target,
+            json_pointer("targets", token),
+        )
+        return
+    path = _resolve_path(project_root, path_part)
+    try:
+        _ensure_inside(project_root, path, "E_TOKEN_REGISTRY_TARGET_OUTSIDE_PROJECT")
+    except ValueError as exc:
+        _diag(
+            hard_diags,
+            str(exc),
+            "target path under project_root",
+            "project_root/...",
+            str(path),
+            json_pointer("targets", token),
+        )
+        return
+    if path.is_symlink() or _has_symlink_parent(path, project_root):
+        _diag(
+            hard_diags,
+            "E_TOKEN_REGISTRY_TARGET_SYMLINK",
+            "target path must not be symlink",
+            "non-symlink",
+            str(path),
+            json_pointer("targets", token),
+        )
+        return
+    if not path.exists():
+        _diag(
+            hard_diags,
+            "E_TOKEN_REGISTRY_TARGET_FILE_NOT_FOUND",
+            "target file not found",
+            "existing file",
+            str(path),
+            json_pointer("targets", token),
+        )
+        return
+    if not path.is_file():
+        _diag(
+            hard_diags,
+            "E_TOKEN_REGISTRY_TARGET_FILE_NOT_FILE",
+            "target path must be file",
+            "file",
+            str(path),
+            json_pointer("targets", token),
+        )
+        return
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        _diag(
+            hard_diags,
+            "E_TOKEN_REGISTRY_TARGET_JSON_INVALID",
+            "target file must be valid JSON",
+            "valid JSON",
+            str(exc),
+            json_pointer("targets", token),
+        )
+        return
+    segments = _decode_json_pointer(pointer)
+    if segments is None:
+        _diag(
+            hard_diags,
+            "E_TOKEN_REGISTRY_TARGET_POINTER_INVALID",
+            "json_pointer invalid",
+            "#/<json_pointer>",
+            target,
+            json_pointer("targets", token),
+        )
+        return
+    current: object = data
+    for segment in segments:
+        if isinstance(current, dict):
+            if segment not in current:
+                _diag(
+                    hard_diags,
+                    "E_TOKEN_REGISTRY_TARGET_POINTER_MISSING",
+                    "json_pointer target missing",
+                    pointer,
+                    target,
+                    json_pointer("targets", token),
+                )
+                return
+            current = current[segment]
+            continue
+        if isinstance(current, list):
+            if not segment.isdigit():
+                _diag(
+                    hard_diags,
+                    "E_TOKEN_REGISTRY_TARGET_POINTER_INVALID",
+                    "json_pointer index invalid",
+                    "integer index",
+                    segment,
+                    json_pointer("targets", token),
+                )
+                return
+            idx = int(segment)
+            if idx < 0 or idx >= len(current):
+                _diag(
+                    hard_diags,
+                    "E_TOKEN_REGISTRY_TARGET_POINTER_MISSING",
+                    "json_pointer index out of range",
+                    pointer,
+                    target,
+                    json_pointer("targets", token),
+                )
+                return
+            current = current[idx]
+            continue
+        _diag(
+            hard_diags,
+            "E_TOKEN_REGISTRY_TARGET_POINTER_INVALID",
+            "json_pointer target not indexable",
+            "object or list",
+            type(current).__name__,
+            json_pointer("targets", token),
+        )
+        return
+
+
 def _load_registry_tokens(
     project_root: Path,
     path: Path,
@@ -191,20 +471,20 @@ def _load_registry_tokens(
     diags: list[Diagnostic],
     missing_code: str,
     invalid_code: str,
-) -> set[str]:
+) -> tuple[set[str], list[tuple[str, str]]]:
     try:
         _ensure_inside(project_root, path, "E_TOKEN_REGISTRY_PATH_OUTSIDE_PROJECT")
     except ValueError as exc:
         _diag(diags, str(exc), "registry path under project_root", "project_root/...", str(path), json_pointer())
-        return set()
+        return set(), []
     if not path.exists():
         _diag(diags, missing_code, "registry file not found", "existing file", str(path), json_pointer())
-        return set()
+        return set(), []
     if path.is_symlink():
         _diag(diags, "E_TOKEN_REGISTRY_SYMLINK", "registry file is symlink", "non-symlink", str(path), json_pointer())
-        return set()
+        return set(), []
     data = load_yaml(path)
-    tokens = _extract_tokens_from_registry(data, prefix)
+    tokens, entries = _collect_registry_entries(data, prefix, diags)
     if not tokens:
         _diag(
             diags,
@@ -214,7 +494,7 @@ def _load_registry_tokens(
             str(path),
             json_pointer(),
         )
-    return tokens
+    return tokens, entries
 
 
 def main() -> int:
@@ -234,32 +514,38 @@ def main() -> int:
         default="OUTPUT/ssot/contract_registry.json",
         help="Contract registry path",
     )
+    ap.add_argument(
+        "--fail-on-unresolved",
+        action="store_true",
+        help="Treat UNRESOLVED#/ targets as failure",
+    )
     args = ap.parse_args()
 
     project_root = Path(args.project_root).resolve() if args.project_root else ROOT
     ssot_registry = _resolve_path(project_root, args.ssot_registry)
     contract_registry = _resolve_path(project_root, args.contract_registry)
 
-    diags: list[Diagnostic] = []
-    ssot_tokens = _load_registry_tokens(
+    hard_diags: list[Diagnostic] = []
+    soft_diags: list[Diagnostic] = []
+    ssot_tokens, ssot_entries = _load_registry_tokens(
         project_root,
         ssot_registry,
         "SSOT.",
-        diags,
+        hard_diags,
         "E_TOKEN_REGISTRY_SSOT_REGISTRY_NOT_FOUND",
         "E_TOKEN_REGISTRY_SSOT_REGISTRY_INVALID",
     )
-    contract_tokens = _load_registry_tokens(
+    contract_tokens, contract_entries = _load_registry_tokens(
         project_root,
         contract_registry,
         "CONTRACT.",
-        diags,
+        hard_diags,
         "E_TOKEN_REGISTRY_CONTRACT_REGISTRY_NOT_FOUND",
         "E_TOKEN_REGISTRY_CONTRACT_REGISTRY_INVALID",
     )
 
     ssot_root = project_root / "sdsl2"
-    contract_used, ssot_used = _collect_tokens_from_files(ssot_root, diags)
+    contract_used, ssot_used = _collect_tokens_from_files(ssot_root, hard_diags)
 
     if not ssot_used and not ssot_tokens:
         ssot_tokens = set()
@@ -269,7 +555,7 @@ def main() -> int:
     for token in sorted(ssot_used):
         if token not in ssot_tokens:
             _diag(
-                diags,
+                hard_diags,
                 "E_TOKEN_REGISTRY_SSOT_TOKEN_MISSING",
                 "SSOT token missing from registry",
                 "registry token",
@@ -280,7 +566,7 @@ def main() -> int:
     for token in sorted(contract_used):
         if token not in contract_tokens:
             _diag(
-                diags,
+                hard_diags,
                 "E_TOKEN_REGISTRY_CONTRACT_TOKEN_MISSING",
                 "CONTRACT token missing from registry",
                 "registry token",
@@ -288,9 +574,17 @@ def main() -> int:
                 json_pointer("contract_tokens", token),
             )
 
-    if diags:
-        _print_diags(diags)
+    for token, target in ssot_entries:
+        _validate_target(project_root, token, target, hard_diags, soft_diags, args.fail_on_unresolved)
+    for token, target in contract_entries:
+        _validate_target(project_root, token, target, hard_diags, soft_diags, args.fail_on_unresolved)
+
+    if hard_diags:
+        _print_diags(hard_diags + soft_diags)
         return 2
+    if soft_diags:
+        _print_diags(soft_diags)
+        return 0
     return 0
 
 

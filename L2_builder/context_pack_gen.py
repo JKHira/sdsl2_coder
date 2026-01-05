@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import subprocess
 import sys
 from pathlib import Path
 
@@ -12,8 +13,26 @@ sys.path.insert(0, str(ROOT))
 
 from L2_builder.common import ROOT as REPO_ROOT, ensure_inside, has_symlink_parent, resolve_path
 from sdslv2_builder.context_pack import extract_context_pack
+from sdslv2_builder.input_hash import compute_input_hash
 
 DEFAULT_OUT = "OUTPUT/context_pack.yaml"
+GENERATOR_ID = "L2_builder.context_pack_gen"
+
+
+def _quote(value: str) -> str:
+    escaped = value.replace("\\", "\\\\").replace('"', '\\"')
+    return f'"{escaped}"'
+
+
+def _git_rev(project_root: Path) -> str:
+    result = subprocess.run(
+        ["git", "-C", str(project_root), "rev-parse", "HEAD"],
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        raise ValueError("E_CONTEXT_PACK_SOURCE_REV_MISSING")
+    return result.stdout.strip()
 
 
 def main() -> int:
@@ -31,10 +50,11 @@ def main() -> int:
         return 2
 
     input_path = resolve_path(project_root, args.input)
+    ssot_root = (project_root / "sdsl2" / "topology").resolve()
     try:
-        ensure_inside(project_root, input_path, "E_CONTEXT_PACK_INPUT_OUTSIDE_PROJECT")
+        ensure_inside(ssot_root, input_path, "E_CONTEXT_PACK_INPUT_NOT_SSOT")
     except ValueError:
-        print("E_CONTEXT_PACK_INPUT_OUTSIDE_PROJECT", file=sys.stderr)
+        print("E_CONTEXT_PACK_INPUT_NOT_SSOT", file=sys.stderr)
         return 2
     if has_symlink_parent(input_path, project_root):
         print("E_CONTEXT_PACK_INPUT_SYMLINK", file=sys.stderr)
@@ -45,6 +65,9 @@ def main() -> int:
     if input_path.is_dir():
         print("E_CONTEXT_PACK_INPUT_IS_DIRECTORY", file=sys.stderr)
         return 2
+    if input_path.suffix != ".sdsl2":
+        print("E_CONTEXT_PACK_INPUT_NOT_SSOT", file=sys.stderr)
+        return 2
 
     try:
         content = extract_context_pack(input_path, args.target, args.hops)
@@ -52,8 +75,43 @@ def main() -> int:
         print(str(exc), file=sys.stderr)
         return 2
 
+    try:
+        source_rev = _git_rev(project_root)
+    except ValueError as exc:
+        print(str(exc), file=sys.stderr)
+        return 2
+    try:
+        result = compute_input_hash(
+            project_root,
+            include_decisions=False,
+            include_policy=False,
+        )
+    except Exception as exc:  # pragma: no cover - defensive
+        print(f"E_CONTEXT_PACK_INPUT_HASH_FAILED:{exc}", file=sys.stderr)
+        return 2
+
+    inputs_rel = []
+    for path in result.inputs:
+        rel = path.resolve().relative_to(project_root.resolve()).as_posix()
+        inputs_rel.append(rel)
+    inputs_rel.append(f"input_hash:{result.input_hash}")
+
+    supplement_lines = [
+        "---",
+        "Supplementary: provenance",
+        f"generator: {_quote(GENERATOR_ID)}",
+        f"source_rev: {_quote(source_rev)}",
+        "inputs:",
+    ]
+    for item in inputs_rel:
+        supplement_lines.append(f"  - {_quote(item)}")
+    supplement = "\n".join(supplement_lines) + "\n"
+
+    content = content if content.endswith("\n") else content + "\n"
+    output = content + supplement
+
     if args.out == "-":
-        print(content, end="")
+        print(output, end="")
         return 0
 
     out_path = resolve_path(project_root, args.out)
@@ -75,7 +133,7 @@ def main() -> int:
         return 2
 
     out_path.parent.mkdir(parents=True, exist_ok=True)
-    out_path.write_text(content, encoding="utf-8")
+    out_path.write_text(output, encoding="utf-8")
     return 0
 
 

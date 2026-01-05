@@ -17,6 +17,13 @@ from sdslv2_builder.input_hash import compute_input_hash
 DEFAULT_CONTEXT = "OUTPUT/context_pack.yaml"
 DEFAULT_OUT = "OUTPUT/bundle_doc.yaml"
 GENERATOR_ID = "L2_builder.bundle_doc_gen"
+SUPPLEMENTARY_ORDER = [
+    "decisions_needed",
+    "provenance",
+    "diagnostics_summary",
+    "links",
+    "decision_log",
+]
 
 
 def _quote(value: str) -> str:
@@ -33,6 +40,62 @@ def _git_rev(project_root: Path) -> str:
     if result.returncode != 0:
         raise ValueError("E_BUNDLE_DOC_SOURCE_REV_MISSING")
     return result.stdout.strip()
+
+
+def _split_context_and_supplementary(text: str) -> tuple[str, list[str]]:
+    lines = text.splitlines(keepends=True)
+    for idx, line in enumerate(lines):
+        if line.strip() == "---":
+            return "".join(lines[:idx]), lines[idx:]
+    return text, []
+
+
+def _parse_supplementary_blocks(lines: list[str]) -> list[tuple[str, list[str]]]:
+    blocks: list[tuple[str, list[str]]] = []
+    idx = 0
+    while idx < len(lines):
+        line = lines[idx]
+        if line.strip() == "":
+            idx += 1
+            continue
+        if line.strip() != "---":
+            raise ValueError("E_BUNDLE_DOC_SUPPLEMENTARY_DELIMITER_INVALID")
+        if idx + 1 >= len(lines):
+            raise ValueError("E_BUNDLE_DOC_SUPPLEMENTARY_HEADER_MISSING")
+        header = lines[idx + 1].strip()
+        if not header.startswith("Supplementary: "):
+            raise ValueError("E_BUNDLE_DOC_SUPPLEMENTARY_HEADER_INVALID")
+        key = header.split("Supplementary: ", 1)[1].strip()
+        if key not in SUPPLEMENTARY_ORDER:
+            raise ValueError(f"E_BUNDLE_DOC_SUPPLEMENTARY_KEY_INVALID:{key}")
+        start = idx
+        idx += 2
+        while idx < len(lines) and lines[idx].strip() != "---":
+            idx += 1
+        block = lines[start:idx]
+        if any(existing_key == key for existing_key, _ in blocks):
+            raise ValueError(f"E_BUNDLE_DOC_SUPPLEMENTARY_DUPLICATE:{key}")
+        blocks.append((key, block))
+    return blocks
+
+
+def _validate_supplementary_order(keys: list[str]) -> None:
+    order = [SUPPLEMENTARY_ORDER.index(key) for key in keys]
+    if order != sorted(order):
+        raise ValueError("E_BUNDLE_DOC_SUPPLEMENTARY_ORDER")
+
+
+def _render_provenance(source_rev: str, inputs: list[str]) -> list[str]:
+    lines = [
+        "---",
+        "Supplementary: provenance",
+        f"generator: {_quote(GENERATOR_ID)}",
+        f"source_rev: {_quote(source_rev)}",
+        "inputs:",
+    ]
+    for item in inputs:
+        lines.append(f"  - {_quote(item)}")
+    return lines
 
 
 def main() -> int:
@@ -108,23 +171,31 @@ def main() -> int:
         inputs_rel.append(rel)
     inputs_rel.append(f"input_hash:{result.input_hash}")
 
-    context_text = context_path.read_text(encoding="utf-8")
-    if not context_text.endswith("\n"):
-        context_text += "\n"
+    raw_text = context_path.read_text(encoding="utf-8")
+    _, sup_lines = _split_context_and_supplementary(raw_text)
+    try:
+        existing_blocks = _parse_supplementary_blocks(sup_lines) if sup_lines else []
+        existing_keys = [key for key, _ in existing_blocks]
+        if existing_keys:
+            _validate_supplementary_order(existing_keys)
+    except ValueError as exc:
+        print(str(exc), file=sys.stderr)
+        return 2
 
-    lines = [
-        "---",
-        "Supplementary: provenance",
-        f"generator: {_quote(GENERATOR_ID)}",
-        f"source_rev: {_quote(source_rev)}",
-        "inputs:",
-    ]
-    for item in inputs_rel:
-        lines.append(f"  - {_quote(item)}")
-    supplement = "\n".join(lines) + "\n"
+    supplement_lines: list[str] = []
+    if "provenance" not in existing_keys:
+        if existing_keys and SUPPLEMENTARY_ORDER.index(existing_keys[-1]) > SUPPLEMENTARY_ORDER.index("provenance"):
+            print("E_BUNDLE_DOC_SUPPLEMENTARY_ORDER", file=sys.stderr)
+            return 2
+        supplement_lines.extend(_render_provenance(source_rev, inputs_rel))
+        supplement_lines.append("")
 
+    supplement = "\n".join(supplement_lines)
+    separator = ""
+    if supplement and not raw_text.endswith("\n"):
+        separator = "\n"
     out_path.parent.mkdir(parents=True, exist_ok=True)
-    out_path.write_text(context_text + supplement, encoding="utf-8")
+    out_path.write_text(raw_text + separator + supplement, encoding="utf-8")
     return 0
 
 

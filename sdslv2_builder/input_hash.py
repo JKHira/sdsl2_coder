@@ -41,6 +41,7 @@ def _ssot_files(root: Path) -> list[Path]:
             continue
         for path in base.rglob("*.sdsl2"):
             if path.is_file():
+                _validate_path(path)
                 files.append(path)
     return sorted(files)
 

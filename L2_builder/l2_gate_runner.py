@@ -32,6 +32,54 @@ def _run_gate(cmd: list[str], gate_key: str | None, policy: dict, verbose: bool)
     return 2
 
 
+def _run_drift_gate(cmd: list[str], policy: dict, verbose: bool) -> int:
+    if verbose:
+        print("+", " ".join(cmd))
+    proc = subprocess.run(cmd, capture_output=True, text=True, cwd=ROOT)
+    if proc.stdout:
+        print(proc.stdout, end="")
+    if proc.returncode == 0:
+        if proc.stderr:
+            print(proc.stderr, end="", file=sys.stderr)
+        return 0
+
+    if not proc.stderr:
+        return 2
+    try:
+        payload = json.loads(proc.stderr)
+    except json.JSONDecodeError:
+        print(proc.stderr, end="", file=sys.stderr)
+        return 2
+    if not isinstance(payload, list):
+        print(proc.stderr, end="", file=sys.stderr)
+        return 2
+
+    drift_policy = policy.get("drift", {}) if isinstance(policy, dict) else {}
+    allow_missing = bool(drift_policy.get("allow_missing_decisions_l0")) or bool(
+        drift_policy.get("migration_window_l1")
+    )
+    allow_manual = bool(drift_policy.get("allow_manual_edges"))
+
+    for item in payload:
+        code = item.get("code") if isinstance(item, dict) else None
+        if code == "E_DRIFT_DECISION_NOT_REFLECTED":
+            if not allow_missing:
+                print(proc.stderr, end="", file=sys.stderr)
+                return 2
+            continue
+        if code == "E_DRIFT_MANUAL_EDGE":
+            if not allow_manual:
+                print(proc.stderr, end="", file=sys.stderr)
+                return 2
+            continue
+        print(proc.stderr, end="", file=sys.stderr)
+        return 2
+
+    print(proc.stderr, end="", file=sys.stderr)
+    print("[DIAG] drift_check", file=sys.stderr)
+    return 0
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument(
@@ -95,6 +143,8 @@ def main() -> int:
         l1_cmd.append("--allow-nonstandard-path")
     if args.policy_path:
         l1_cmd.extend(["--policy-path", args.policy_path])
+    if args.publish:
+        l1_cmd.append("--fail-on-unresolved")
     if _run_gate(l1_cmd, None, policy, args.verbose) != 0:
         return 2
 
@@ -108,7 +158,7 @@ def main() -> int:
     ]
     if args.allow_nonstandard_path:
         drift_cmd.append("--allow-nonstandard-path")
-    if _run_gate(drift_cmd, None, policy, args.verbose) != 0:
+    if _run_drift_gate(drift_cmd, policy, args.verbose) != 0:
         return 2
 
     exception_cmd = [

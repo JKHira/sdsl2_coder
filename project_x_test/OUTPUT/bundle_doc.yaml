@@ -1,0 +1,32 @@
+Context Pack
+Header:
+  target: @Node.NODE_A
+  profile: topology
+  stage: L1
+Nodes:
+  - rel_id: NODE_A
+    canon_id: P0_T_TEST_NODE_A
+  - rel_id: NODE_B
+    canon_id: P0_T_TEST_NODE_B
+Edges:
+  - from: @Node.NODE_A
+    to: @Node.NODE_B
+    direction: "req"
+    channel: None
+    contract_refs:
+      - "CONTRACT.MINIMAL_EVENT"
+Contracts:
+  - "CONTRACT.MINIMAL_EVENT"
+Authz:
+  []
+Invariants:
+  []
+Open TODO: {}
+---
+Supplementary: provenance
+generator: "L2_builder.context_pack_gen"
+source_rev: "60ad7e3c0855992b0c3d561ad24a777a5fb618b6"
+inputs:
+  - "sdsl2/contract/MINIMAL_C.sdsl2"
+  - "sdsl2/topology/MINIMAL_L1.sdsl2"
+  - "input_hash:sha256:071672ce5d4f683fd3cc5d4303d7037c2955b649b43c5e5eb404da4443735ceb"

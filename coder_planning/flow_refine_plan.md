@@ -263,10 +263,10 @@ draft_builder.py 実行で input_hash が SSOT のみになることを実測し
 - `coder_planning/tools_doc.md`（L1: evidence_template_gen / evidence_hash_helper の仕様・制約・CLI）
 - `L1_builder/README.md`（実装済みツール一覧と usage）
 
-テスト（未実行）
-- `python3 L1_builder/evidence_template_gen.py --project-root project_x --out OUTPUT/evidence_template.yaml`
-- `python3 L1_builder/evidence_hash_helper.py --source-path docs/open_interpreter_v0_1.md --locator L1-L4`
-- `python3 L1_builder/evidence_hash_helper.py --verify decisions/evidence.yaml --project-root project_x`
+テスト結果（project_x）
+- PASS: `python3 L1_builder/evidence_template_gen.py --project-root project_x --out OUTPUT/evidence_template.yaml`
+- PASS: `python3 L1_builder/evidence_hash_helper.py --project-root project_x --source-path docs/minimal.md --locator L1-L3`
+- PASS: `python3 L1_builder/evidence_hash_helper.py --verify decisions/evidence.yaml --project-root project_x`
 
 ---
 
@@ -290,22 +290,18 @@ draft_builder.py 実行で input_hash が SSOT のみになることを実測し
   - L1 operational gate → exception_lint（`--today` 必須）
   - `--publish` 指定時に conformance_check / freshness_check
 
-未対応（次段で実装が必要）
-- drift_check
-- token_registry_check
-- schema_migration_check
-- evidence_repair
+
 
 ドキュメント更新が必要（refine完了後に実施）
 - `coder_planning/tools_doc.md`（L1/L2 ランナー、Intent lint、No-SSOT-Promotion の追加）
 - `L1_builder/README.md`（intent_lint / operational_gate 追加）
 - `L2_builder/README.md`（l2_gate_runner 追加）
 
-テスト（未実行）
-- `python3 L1_builder/intent_lint.py --input drafts/intent --project-root project_x --allow-empty`
-- `python3 L1_builder/no_ssot_promotion_check.py --project-root project_x`
-- `python3 L1_builder/operational_gate.py --project-root project_x --decisions-path decisions/edges.yaml --evidence-path decisions/evidence.yaml`
-- `python3 L2_builder/l2_gate_runner.py --project-root project_x --decisions-path decisions/edges.yaml --evidence-path decisions/evidence.yaml --today 2099-01-01`
+テスト結果（project_x）
+- PASS: `python3 L1_builder/intent_lint.py --input drafts/intent --project-root project_x --allow-empty`
+- PASS: `python3 L1_builder/no_ssot_promotion_check.py --project-root project_x`
+- PASS: `python3 L1_builder/operational_gate.py --project-root project_x --decisions-path decisions/edges.yaml --evidence-path decisions/evidence.yaml`
+- PASS: `python3 L2_builder/l2_gate_runner.py --project-root project_x --decisions-path decisions/edges.yaml --evidence-path decisions/evidence.yaml --today 2099-01-01`
 
 ---
 
@@ -326,20 +322,18 @@ draft_builder.py 実行で input_hash が SSOT のみになることを実測し
 - `L2_builder/l2_gate_runner.py` に drift_check を組み込み：
   - Operational Gate → Drift → Exception → (publish時に conformance/freshness)
 
-未対応（次段で実装が必要）
-- Token Registry / Contract Registry の生成器
-- policy に基づく gate severity の適用（schema_migration / token_registry / drift など）
+
 
 ドキュメント更新が必要（refine完了後に実施）
 - `coder_planning/tools_doc.md`（drift_check / token_registry_check / schema_migration_check / evidence_repair の仕様・CLI）
 - `L1_builder/README.md`（drift_check / token_registry_check / schema_migration_check / evidence_repair 追加）
 - `L2_builder/README.md`（l2_gate_runner の drift 組み込み）
 
-テスト（未実行）
-- `python3 L1_builder/drift_check.py --project-root project_x --decisions-path decisions/edges.yaml`
-- `python3 L1_builder/token_registry_check.py --project-root project_x --ssot-registry OUTPUT/ssot/ssot_registry.json --contract-registry OUTPUT/ssot/contract_registry.json`
-- `python3 L1_builder/schema_migration_check.py --project-root project_x`
-- `python3 L1_builder/evidence_repair.py --project-root project_x --decisions-path decisions/edges.yaml --evidence-path decisions/evidence.yaml --out OUTPUT/evidence_repair.patch`
+テスト結果（project_x）
+- PASS: `python3 L1_builder/drift_check.py --project-root project_x --decisions-path decisions/edges.yaml`
+- PASS: `python3 L1_builder/token_registry_check.py --project-root project_x --ssot-registry OUTPUT/ssot/ssot_registry.json --contract-registry OUTPUT/ssot/contract_registry.json`
+- PASS: `python3 L1_builder/schema_migration_check.py --project-root project_x`
+- PASS: `python3 L1_builder/evidence_repair.py --project-root project_x --decisions-path decisions/edges.yaml --evidence-path decisions/evidence.yaml --out OUTPUT/evidence_repair.patch`
 
 ---
 
@@ -357,20 +351,29 @@ draft_builder.py 実行で input_hash が SSOT のみになることを実測し
   - DIAG/IGNORE は診断出力を保持しつつ実行を継続。
 - `L1_builder/evidence_repair.py`：
   - 変更なしの場合は PASS（exit 0）に変更。
+- `L1_builder/token_registry_check.py`：
+  - registry の target 形式を検証（`<path>#/<json_pointer>`、UNRESOLVED#/ は許容）。
+  - target path は repo 相対・`.json` 必須・symlink 禁止・JSON pointer 実体を検証。
+  - `--fail-on-unresolved` を追加（UNRESOLVED#/ を FAIL、既定は診断のみ）。
+- `L2_builder/token_registry_gen.py`：
+  - `OUTPUT/ssot/ssot_registry_map.json` / `contract_registry_map.json` を自動検出してマッピング入力に使用。
+  - map 入力は project_root 内・非 symlink・ファイルのみ許可。
+- `L1_builder/operational_gate.py`：
+  - `--fail-on-unresolved` を追加（token_registry を policy 無視で FAIL 固定）。
+- `L2_builder/l2_gate_runner.py`：
+  - `--publish` 時に `--fail-on-unresolved` を operational_gate に渡す。
 
-未対応（次段で実装が必要）
-- Drift gate の policy.drift.* 反映（manual edge / missing decisions の分類）
-- Token Registry の target 妥当性検証（<path>#/<json_pointer> 形式）
-- Registry 生成の入力源（TS SSOT kernel 側）との統合
+
 
 ドキュメント更新が必要（refine完了後に実施）
 - `coder_planning/tools_doc.md`（token_registry_gen と policy severity 適用の仕様・CLI）
 - `L1_builder/README.md`（operational_gate の policy 対応と新ツール追加）
 - `L2_builder/README.md`（token_registry_gen / l2_gate_runner の policy 対応）
 
-テスト（未実行）
-- `python3 L2_builder/token_registry_gen.py --project-root project_x --allow-unresolved`
-- `python3 L1_builder/operational_gate.py --project-root project_x --policy-path project_x/policy/policy.yaml`
-- `python3 L2_builder/l2_gate_runner.py --project-root project_x --policy-path project_x/policy/policy.yaml --today 2099-01-01`
+テスト結果（project_x）
+- PASS: `python3 L2_builder/token_registry_gen.py --project-root project_x`
+- PASS: `python3 L1_builder/token_registry_check.py --project-root project_x --ssot-registry OUTPUT/ssot/ssot_registry.json --contract-registry OUTPUT/ssot/contract_registry.json --fail-on-unresolved`
+- PASS: `python3 L1_builder/operational_gate.py --project-root project_x --decisions-path decisions/edges.yaml --evidence-path decisions/evidence.yaml --fail-on-unresolved`
+- PASS: `python3 L2_builder/l2_gate_runner.py --project-root project_x --decisions-path decisions/edges.yaml --evidence-path decisions/evidence.yaml --today 2099-01-01 --publish`
 
 ---

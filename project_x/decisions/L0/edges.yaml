@@ -1,9 +1,0 @@
-schema_version: "0.1"
-provenance:
-  author: "bootstrap"
-  reviewed_by: "bootstrap"
-  source_link: "docs/decisions_bootstrap.md"
-scope:
-  kind: "id_prefix"
-  value: "P0_T_EXAMPLE"
-edges: []

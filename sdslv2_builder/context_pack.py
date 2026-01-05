@@ -308,33 +308,43 @@ def extract_context_pack(path: Path, target: str, hops: int = 1) -> str:
         f"  stage: {stage_value}",
         "Nodes:",
     ]
-    for node in scope_nodes:
-        out.append(
-            "  - rel_id: {rel_id}, canon_id: {canon_id}".format(
-                rel_id=node.rel_id,
-                canon_id=node_sort_id.get(node.rel_id, node.rel_id),
-            )
-        )
+    if not scope_nodes:
+        out.append("  []")
+    else:
+        for node in scope_nodes:
+            canon_id = node_sort_id.get(node.rel_id, "None")
+            out.append(f"  - rel_id: {node.rel_id}")
+            out.append(f"    canon_id: {canon_id}")
 
     out.append("Edges:")
-    for edge in scope_edges:
-        direction = _quote(edge.direction) if edge.direction else "None"
-        channel = _quote(edge.channel) if edge.channel else "None"
-        contract_list = ", ".join(_quote(token) for token in edge.contract_refs)
-        out.append(
-            "  - from: @Node.{from_id}, to: @Node.{to_id}, direction: {direction}, "
-            "channel: {channel}, contract_refs: [{contract_refs}]".format(
-                from_id=edge.from_id,
-                to_id=edge.to_id,
-                direction=direction,
-                channel=channel,
-                contract_refs=contract_list,
-            )
-        )
+    if not scope_edges:
+        out.append("  []")
+    else:
+        for edge in scope_edges:
+            direction = _quote(edge.direction) if edge.direction else "None"
+            channel = _quote(edge.channel) if edge.channel else "None"
+            out.append(f"  - from: @Node.{edge.from_id}")
+            out.append(f"    to: @Node.{edge.to_id}")
+            out.append(f"    direction: {direction}")
+            out.append(f"    channel: {channel}")
+            out.append("    contract_refs:")
+            if edge.contract_refs:
+                for token in edge.contract_refs:
+                    out.append(f"      - {_quote(token)}")
+            else:
+                out.append("      []")
 
     out.append("Contracts:")
-    for token in contracts:
-        out.append(f"  - {_quote(token)}")
+    if not contracts:
+        out.append("  []")
+    else:
+        for token in contracts:
+            out.append(f"  - {_quote(token)}")
+
+    out.append("Authz:")
+    out.append("  []")
+    out.append("Invariants:")
+    out.append("  []")
 
     if scope_intents:
         out.append("Open TODO:")

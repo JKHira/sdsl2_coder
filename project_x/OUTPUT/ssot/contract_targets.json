@@ -1,0 +1,6 @@
+{
+  "CONTRACT.MINIMAL_EVENT": {
+    "kind": "event",
+    "notes": "minimal"
+  }
+}

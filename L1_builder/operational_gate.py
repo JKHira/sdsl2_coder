@@ -92,6 +92,11 @@ def main() -> int:
         default=None,
         help="Explicit policy path for gate severities",
     )
+    ap.add_argument(
+        "--fail-on-unresolved",
+        action="store_true",
+        help="Treat UNRESOLVED token registry targets as failure",
+    )
     ap.add_argument("--verbose", action="store_true", help="Print commands")
     args = ap.parse_args()
 
@@ -225,7 +230,10 @@ def main() -> int:
         "--project-root",
         str(project_root),
     ]
-    if _run_gate(token_cmd, "token_registry", policy, args.verbose) != 0:
+    if args.fail_on_unresolved:
+        token_cmd.append("--fail-on-unresolved")
+    token_gate_key = None if args.fail_on_unresolved else "token_registry"
+    if _run_gate(token_cmd, token_gate_key, policy, args.verbose) != 0:
         return 2
 
     if args.determinism_manifest:

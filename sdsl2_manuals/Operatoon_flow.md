@@ -38,6 +38,7 @@ Contract SSOT も decisions/contracts.yaml → contract_promote（diff-only）�
 
 C) Draft / Intent / Evidence / Exceptions（非SSOT、意思決定の足場）
 	•	drafts/*.yaml：検討中の提案（questions/conflicts/候補など）
+	•	drafts/ledger/*.yaml：ノード骨格などの作業用 ledger（非SSOT）
 	•	drafts/intent/*.yaml：Edge の“意図”を表す Intent YAML（L0/L1 の下書き）
 	•	decisions/evidence.yaml：決定の証拠（Evidence Map）
 	•	policy/policy.yaml：ゲート運用の設定（FAIL/DIAG/IGNORE 等）
@@ -57,6 +58,7 @@ D) Derived Outputs（派生出力：保存しても権威にならない）
 OUTPUT/ssot/ssot_definitions.json は Planned。
 
 これらは 必ず再生成できることが要求され、手編集は禁止です。保存する場合は source_rev と input_hash で “この入力集合から生成した” が追跡できる必要があります。
+intent_preview は cache 扱い（非SSOT・非権威）とし、必要時に再生成する前提で運用します。
 
 ⸻
 
@@ -135,6 +137,7 @@ Operational Gate は、draft_lint / intent_lint / schema_migration_check / decis
 no_ssot_promotion_check / token_registry_check を順に実行し、policy の gate severity で FAIL/DIAG/IGNORE を決めます。
 （determinism_check は manifest 指定時のみ）
 no_ssot_promotion_check は sdsl2/ と decisions/ 配下への非SSOT混入や symlink を遮断します。
+token_registry_check は UNRESOLVED#/ を暫定許容し、publish 時は UNRESOLVED#/ を FAIL にします（段階的厳格化）。
 
 (1) Intent YAML を “決定の前提” として揃える
 Intent YAML は Promote の入力ではありませんが、Readiness の条件として機能します。
@@ -227,6 +230,7 @@ SDSL2 は TS 定義を直接参照しません。参照は SSOT.* / CONTRACT.* �
 	•	SDSL2 側：ssot:["SSOT.XYZ"], contract:["CONTRACT.ABC"] のようにトークン参照
 	•	Registry：token -> <path>#/<json_pointer> の対応を持つ
 	•	CI：SDSL2 が使った SSOT.* / CONTRACT.* が Registry にないと FAIL
+	•	UNRESOLVED#/ は pre-publish では許容し、publish では FAIL
 
 この構造により、「SDSL2 と TS の結合」が ソースコード結合ではなく、明示トークン＋レジストリ結合になり、最終状態での決定性が高まります。
 

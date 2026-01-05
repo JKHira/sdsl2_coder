@@ -17,10 +17,13 @@ Non-scope: Grammar/semantics changes; tool implementation.
 - Context Pack uses Graph Facts only; Edges MUST come only from @Edge; EdgeIntent ids MUST appear only under Open TODO.edge_intents; @EdgeIntent statements MUST NOT appear in Context Pack (see SDSL2_Operational_Addendum_Spec.md).
 - Bundle Doc MUST embed the full Context Pack first and unchanged; Supplementary Sections MAY follow only.
 - Persisted outputs (if any) MUST be stored only at OUTPUT/context_pack.yaml and OUTPUT/bundle_doc.yaml (closed set).
+- Persisted Context Pack MUST include Supplementary: provenance (generator, source_rev, inputs). No other Supplementary sections are allowed in context_pack.yaml.
+- Context Pack input_hash MUST be computed from SSOT files only (no Explicit Inputs).
 - Supplementary Sections MUST use delimiter `---` and heading `Supplementary: <key>`.
 - Supplementary Sections MUST be YAML block style; no flow style; no prose.
 - Supplementary Section maps MUST use schema key order; strings MUST be double-quoted (Supplementary Sections only).
 - Supplementary Section keys (order) are closed: decisions_needed, provenance, diagnostics_summary, links, decision_log.
+- Supplementary Sections MUST appear in the above order when present.
 - Open TODO MUST be a map; empty lists MUST be `[]`; empty Open TODO MUST be `{}`.
 - Open TODO keys (closed): edge_intents, missing_contract_defs, missing_invariants, missing_authz.
 - decisions_needed MUST appear only as a Supplementary Section.

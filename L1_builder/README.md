@@ -1,33 +1,43 @@
 # L1 Builder
 
-Purpose: L1 promotion tooling (Decisions + Evidence -> SSOT patch).
+Purpose: L1 promotion tooling (Decisions + Evidence -> SSOT patch) and L1 operational gates.
 
-Planned tools (stubs):
-- promote.py (unified diff only; no auto-apply)
-- contract_decisions_lint.py (decisions/contracts.yaml validation)
-- contract_promote.py (contract diff only; no auto-apply)
-- decisions_lint.py (decisions/edges.yaml validation)
-- evidence_lint.py (decisions/evidence.yaml validation)
-- readiness_check.py (L1 readiness gate)
+## Tools
+- `decisions_lint.py` -> Validate decisions/edges.yaml.
+- `evidence_lint.py` -> Validate decisions/evidence.yaml.
+- `readiness_check.py` -> Promotion readiness gate (Intent + Decisions + Evidence).
+- `promote.py` -> Unified diff only; no auto-apply.
+- `contract_decisions_lint.py` -> Validate decisions/contracts.yaml.
+- `contract_promote.py` -> Contract diff only; no auto-apply.
+- `intent_lint.py` -> Validate drafts/intent/*.yaml.
+- `evidence_template_gen.py` -> Generate evidence skeleton from decisions/edges.yaml.
+- `evidence_hash_helper.py` -> Compute/verify content_hash for evidence.
+- `evidence_repair.py` -> Diff-only evidence repair proposal.
+- `schema_migration_check.py` -> Detect schema_version major mismatch.
+- `drift_check.py` -> Detect SSOT vs decisions drift.
+- `token_registry_check.py` -> Validate SSOT.* / CONTRACT.* tokens vs registries.
+- `no_ssot_promotion_check.py` -> Block drafts/evidence under sdsl2/ or decisions/.
+- `operational_gate.py` -> Run L1 operational gates in order with policy severity.
 
-Notes:
+## Notes
 - SSOT lives under sdsl2/ only; never write SSOT directly.
-- Outputs must be unified diffs under OUTPUT/.
-- Inputs are decisions/ and drafts/ per specs.
+- Diff outputs must stay under OUTPUT/.
+- Intent input is restricted to drafts/intent/.
+- token_registry_check allows UNRESOLVED#/ by default; use --fail-on-unresolved to hard-fail.
 
-Usage (examples):
-- Validate decisions:
-  - python3 L1_builder/decisions_lint.py --input decisions/edges.yaml --project-root project_x
-- Validate contract decisions:
-  - python3 L1_builder/contract_decisions_lint.py --input decisions/contracts.yaml --project-root project_x
-- Validate evidence:
-  - python3 L1_builder/evidence_lint.py --project-root project_x
-- L1 readiness check:
-  - python3 L1_builder/readiness_check.py --project-root project_x
+## Usage (examples)
+- Operational gate (policy optional):
+  - python3 L1_builder/operational_gate.py --project-root project_x --decisions-path decisions/edges.yaml --evidence-path decisions/evidence.yaml
+- Intent lint:
+  - python3 L1_builder/intent_lint.py --input drafts/intent --project-root project_x --allow-empty
+- Drift check:
+  - python3 L1_builder/drift_check.py --project-root project_x --decisions-path decisions/edges.yaml
+- Token registry check:
+  - python3 L1_builder/token_registry_check.py --project-root project_x --ssot-registry OUTPUT/ssot/ssot_registry.json --contract-registry OUTPUT/ssot/contract_registry.json
+- Evidence hash verify:
+  - python3 L1_builder/evidence_hash_helper.py --verify decisions/evidence.yaml --project-root project_x
 - Promote (diff only; no auto-apply):
   - python3 L1_builder/promote.py --project-root project_x --out OUTPUT/promote.patch
-- Contract promote (diff only; no auto-apply):
-  - python3 L1_builder/contract_promote.py --project-root project_x --out OUTPUT/contract_promote.patch
 
 Non-standard paths (only when needed):
-- Add --allow-nonstandard-path to decisions_lint/evidence_lint/readiness_check.
+- Add --allow-nonstandard-path to decisions_lint/evidence_lint/readiness_check/intent_lint/operational_gate.

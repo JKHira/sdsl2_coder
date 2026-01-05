@@ -29,6 +29,15 @@ def _has_symlink_parent(path: Path, stop: Path) -> bool:
     return False
 
 
+def _ensure_under_root(path: Path, root: Path, code: str) -> bool:
+    try:
+        path.resolve().relative_to(root.resolve())
+    except ValueError:
+        print(code, file=sys.stderr)
+        return False
+    return True
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--input", required=True, help="Draft YAML path")
@@ -40,13 +49,14 @@ def main() -> int:
     args = ap.parse_args()
 
     project_root = Path(args.project_root).resolve() if args.project_root else ROOT
+    drafts_root = project_root / "drafts"
+    if drafts_root.is_symlink():
+        print("E_DRAFT_DRAFTS_ROOT_SYMLINK", file=sys.stderr)
+        return 2
     path = Path(args.input)
     if not path.is_absolute():
         path = (project_root / path).resolve()
-    try:
-        path.resolve().relative_to(project_root.resolve())
-    except ValueError:
-        print("E_DRAFT_INPUT_OUTSIDE_PROJECT", file=sys.stderr)
+    if not _ensure_under_root(path, drafts_root, "E_DRAFT_INPUT_NOT_DRAFTS_ROOT"):
         return 2
     if not path.exists():
         print("E_DRAFT_INPUT_NOT_FOUND", file=sys.stderr)
@@ -57,7 +67,7 @@ def main() -> int:
     if path.is_symlink():
         print("E_DRAFT_INPUT_SYMLINK", file=sys.stderr)
         return 2
-    if _has_symlink_parent(path, project_root):
+    if _has_symlink_parent(path, drafts_root):
         print("E_DRAFT_INPUT_SYMLINK_PARENT", file=sys.stderr)
         return 2
 

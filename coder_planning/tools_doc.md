@@ -9,6 +9,7 @@ Ready
 - `context_pack_gen.py` -> Context Pack generator (wraps `sdslv2_builder.context_pack`).
 - `manual_addendum_lint.py` -> Manual Gate (Gate A) + Addendum lint (wraps scripts).
 - `draft_builder.py` -> Normalize/fill Draft YAML and write canonical output.
+- `intent_builder.py` -> Normalize/fill Intent YAML under drafts/intent.
 - `draft_lint.py` -> Draft schema validation.
 - `ledger_builder.py` -> Build topology ledger from a node list.
 - `edgeintent_diff.py` -> Unified diff for @EdgeIntent updates from Draft.
@@ -16,20 +17,21 @@ Ready
 Planned (not implemented yet)
 - (none)
 
-## Project root layout (recommended)
+## Repository root layout (authoritative)
 
-Create a per-project root so drafts/ledger/decisions/OUTPUT are isolated:
+Drafts live at the repository root (`drafts/`). If isolation is needed, use a separate
+repo/worktree. In examples, `project_x` means a repo root path (not a nested subdir).
 
 ```
-project_x/
+repo_root/
   drafts/
-  ledger/
+  drafts/ledger/
   decisions/
   OUTPUT/
-  sdsl2/  # read-only SSOT mirror (contract/topology)
+  sdsl2/  # SSOT (contract/topology)
 ```
 
-Pass `--project-root project_x` to L0 tools.
+Pass `--project-root <repo_root>` to L0 tools (defaults to repo root).
 
 ## Quickstart (L0)
 
@@ -38,13 +40,14 @@ context_pack_gen.py
 
 役割
 	•	sdslv2_builder.context_pack.extract_context_pack() をCLIとして提供する Context Pack生成ツール。
-	•	入力 .sdsl2（topology）から、指定 @Node.<RELID> を中心に hops 近傍を抽出し、OUTPUT配下に書き出す（またはstdout）。
+	•	入力 .sdsl2（sdsl2/topology のみ）から、指定 @Node.<RELID> を中心に hops 近傍を抽出し、OUTPUT/context_pack.yaml に書き出す（またはstdout）。
+	•	出力には Supplementary: provenance（source_rev/input_hash）を付与する。
 
 使い方（最小）
 
 CLI：
 	•	ファイル出力（デフォルト）
-	•	python3 L2_builder/context_pack_gen.py --input sdsl2/topology/MINIMAL_L0.sdsl2 --target @Node.NODE_A --project-root project_x
+	•	python3 L0_builder/context_pack_gen.py --input sdsl2/topology/MINIMAL_L0.sdsl2 --target @Node.NODE_A --project-root project_x
 	•	stdoutに出す
 	•	python3 .../context_pack_gen.py --input ... --target @Node.NODE_A --out -
 
@@ -52,19 +55,19 @@ CLI：
 	•	--input：SDSL2ファイルパス（project_root相対可）
 	•	--target：@Node.<RELID>（必須）
 	•	--hops：近傍のホップ数（>=0、デフォルト1）
-	•	--out：出力パス（デフォルトは <repo>/OUTPUT/context_pack.yaml）、- でstdout
+	•	--out：出力パス（OUTPUT/context_pack.yaml 固定）、- でstdout
 	•	--project-root：プロジェクトルート（省略時はrepo root）
 
 安全・制約（コード上のゲート）
 	•	--hops < 0 は E_CONTEXT_PACK_HOPS_INVALID
-	•	--input は project_root配下必須（E_CONTEXT_PACK_INPUT_OUTSIDE_PROJECT）
-	•	--out は project_root/OUTPUT 配下必須（E_CONTEXT_PACK_OUTPUT_OUTSIDE_OUTPUT）
+	•	--input は sdsl2/topology 配下必須（E_CONTEXT_PACK_INPUT_NOT_SSOT）
+	•	--out は OUTPUT/context_pack.yaml のみ許可（E_CONTEXT_PACK_OUTPUT_PATH_INVALID）
 	•	--out が既存ディレクトリは不可（E_CONTEXT_PACK_OUTPUT_IS_DIRECTORY）
 	•	入力が存在しない場合：E_CONTEXT_PACK_INPUT_NOT_FOUND: <path>
 
 出力ファイル
 	•	既定：OUTPUT/context_pack.yaml
-	•	内容：extract_context_pack() が返す 人間可読テキスト（ヘッダ、Nodes/Edges/Contracts、Open TODOなど）。
+	•	内容：Context Pack 仕様準拠の YAML（Header/Nodes/Edges/Contracts/Authz/Invariants/Open TODO）＋ Supplementary: provenance。
 	•	役割：LLMやレビュー工程に渡す「局所トポロジ要約」。
 
 ⸻
@@ -74,17 +77,17 @@ draft_builder.py
 役割
 	•	Draft YAML（設計途中の提案情報）を 正規化・検証して drafts/ 配下に保存する生成器。
 	•	Draftに必要なメタ情報を埋める：
-	•	schema_version（欠けていれば 0.1）
+	•	schema_version（欠けていれば 1.0）
 	•	generator_id（引数で指定、デフォルト draft_builder_v0_1）
 	•	source_rev（git rev-parse HEAD、失敗時 UNKNOWN）
-	•	input_hash（decisions/edges.yaml を追加入力として compute_input_hash() で算出）
+	•	input_hash（SSOTのみを対象に compute_input_hash() で算出）
 	•	scope（無ければ --scope-from 等から導出）
 	•	その上で normalize_draft(fill_missing=False) を通し、違反があれば診断JSONで失敗する。
 
 使い方（最小）
 
 CLI（典型）：
-	•	python3 L2_builder/draft_builder.py --input drafts/my_draft.yaml --project-root project_x
+	•	python3 L0_builder/draft_builder.py --input drafts/my_draft.yaml --project-root project_x
 
 scope未記載のDraftを作る場合（scope導出）：
 	•	python3 .../draft_builder.py --input <in.yaml> --scope-from sdsl2/topology/MINIMAL_L0.sdsl2 --project-root project_x
@@ -100,7 +103,6 @@ scope未記載のDraftを作る場合（scope導出）：
 重要な制約（事故防止の観点で効いているところ）
 	•	scope_from は project_root配下必須。外なら E_DRAFT_SCOPE_OUTSIDE_PROJECT（診断JSON）
 	•	scope.kind=file の場合、sdsl2/topology/<file>.sdsl2 以外を拒否（E_DRAFT_SCOPE_NOT_SSOT）
-	•	decisions/edges.yaml が project_root に無いと E_DRAFT_DECISIONS_NOT_FOUND
 	•	compute_input_hash() が FileNotFoundError / symlink(ValueError) を起こしたら即失敗（例外文字列をstderr）
 	•	出力は project_root/drafts 配下に強制：
 	•	外なら E_DRAFT_DRAFTS_OUTSIDE_PROJECT
@@ -115,6 +117,32 @@ scope未記載のDraftを作る場合（scope導出）：
 
 ⸻
 
+intent_builder.py
+
+役割
+	•	Intent YAML（drafts/intent/*.yaml）専用の正規化・検証ビルダー。
+	•	Intent spec の閉集合に合わせてメタ情報を埋める：
+	•	schema_version（欠けていれば 1.0）
+	•	generator_id（引数で指定、デフォルト intent_builder_v1_0）
+	•	source_rev（git rev-parse HEAD、失敗時 UNKNOWN）
+	•	input_hash（SSOTのみを対象に compute_input_hash() で算出）
+	•	scope（無ければ --scope-from 等から導出）
+
+使い方（最小）
+	•	python3 L0_builder/intent_builder.py --input drafts/intent/example.yaml --project-root project_x
+
+主な引数
+	•	--input：Intent YAMLパス（drafts/intent 配下のみ）
+	•	--out：出力先（省略時は原則 input を上書き）
+	•	--scope-from：scope.kind=file として scope.value を project_root相対パスで導出
+	•	--project-root：プロジェクトルート（出力は project_root/drafts/intent 配下に制限）
+
+制約・安全
+	•	入力が drafts/intent 外なら E_INTENT_INPUT_NOT_INTENT_ROOT
+	•	入力 symlink は拒否（E_INTENT_INPUT_SYMLINK）
+
+⸻
+
 draft_lint.py
 
 役割
@@ -124,14 +152,14 @@ draft_lint.py
 使い方（最小）
 
 CLI：
-	•	python3 L2_builder/draft_lint.py --input drafts/my_draft.yaml --project-root project_x
+	•	python3 L0_builder/draft_lint.py --input drafts/my_draft.yaml --project-root project_x
 
 主な引数
-	•	--input：Draft YAML
-	•	--project-root：入力の相対解決と “外部参照禁止” の境界
+	•	--input：Draft YAML（drafts/ 配下のみ）
+	•	--project-root：入力の相対解決と境界
 
 制約
-	•	inputは project_root配下必須：E_DRAFT_INPUT_OUTSIDE_PROJECT
+	•	inputは drafts/ 配下必須：E_DRAFT_INPUT_NOT_DRAFTS_ROOT
 	•	inputが無い：E_DRAFT_INPUT_NOT_FOUND
 	•	rootがdictでない：E_DRAFT_SCHEMA_INVALID（診断JSON）
 
@@ -188,10 +216,10 @@ ledger_builder.py
 使い方（最小）
 
 ノード一覧ファイルからledger生成：
-	•	python3 L2_builder/ledger_builder.py --nodes inputs/nodes.txt --id-prefix MY_TOPO --out ledger/my_topology.yaml --project-root project_x
+	•	python3 L2_builder/ledger_builder.py --nodes inputs/nodes.txt --id-prefix MY_TOPO --out drafts/ledger/my_topology.yaml --project-root project_x
 
 @Structureトークン抽出で生成（明示許可が必要）：
-	•	python3 .../ledger_builder.py --extract-structures-from some.txt --allow-structure-nodes --id-prefix MY_TOPO --out ledger/my_topology.yaml --line-start 10 --line-end 80 --project-root project_x
+	•	python3 .../ledger_builder.py --extract-structures-from some.txt --allow-structure-nodes --id-prefix MY_TOPO --out drafts/ledger/my_topology.yaml --line-start 10 --line-end 80 --project-root project_x
 
 主な引数
 	•	--id-prefix（必須）
@@ -201,10 +229,11 @@ ledger_builder.py
 
 制約・安全
 	•	入力が両方無い：E_LEDGER_BUILDER_INPUT_MISSING
+	•	入力が両方ある：E_LEDGER_BUILDER_INPUT_CONFLICT
 	•	--extract-structures-from を使うには --allow-structure-nodes 必須（E_LEDGER_BUILDER_STRUCTURE_NODES_FORBIDDEN）
 	•	入力ファイルは project_root 配下必須（E_LEDGER_BUILDER_INPUT_OUTSIDE_PROJECT 等）
-	•	出力は project_root/ledger または project_root/OUTPUT 配下のみ許可
-	•	それ以外は E_LEDGER_BUILDER_OUTPUT_OUTSIDE_PROJECT
+	•	出力は project_root/drafts/ledger 配下のみ許可
+	•	それ以外は E_LEDGER_BUILDER_OUTPUT_OUTSIDE_DRAFTS
 	•	出力がディレクトリは不可（E_LEDGER_OUTPUT_IS_DIRECTORY）
 	•	Node id がRELIDに合わない行は詳細をstderrに列挙し E_LEDGER_BUILDER_INVALID_NODE_ID
 
@@ -723,6 +752,7 @@ token_registry_check.py
 
 役割
 	•	sdsl2/ 内の SSOT.* / CONTRACT.* 使用トークンを Registry と突合する。
+	•	Registry target が UNRESOLVED#/ の場合は診断出力のみ（--fail-on-unresolved で FAIL）。
 
 使い方（最小）
 	•	python3 L1_builder/token_registry_check.py --project-root <project>
@@ -731,6 +761,7 @@ token_registry_check.py
 	•	--ssot-registry（既定 OUTPUT/ssot/ssot_registry.json）
 	•	--contract-registry（既定 OUTPUT/ssot/contract_registry.json）
 	•	--project-root
+	•	--fail-on-unresolved（UNRESOLVED#/ を FAIL）
 
 ⸻
 
@@ -748,6 +779,7 @@ operational_gate.py
 	•	--policy-path（明示 policy）
 	•	--decisions-path / --evidence-path
 	•	--ssot-registry / --contract-registry
+	•	--fail-on-unresolved（UNRESOLVED#/ を FAIL。token_registry は policy を使わず FAIL 固定）
 	•	--determinism-manifest（任意）
 	•	--allow-nonstandard-path
 
@@ -1257,6 +1289,9 @@ exception_lint を通し、必要に応じて conformance_check / freshness_chec
 	•	python3 ... --publish
 	•	policy 指定：
 	•	python3 ... --policy-path policy/policy.yaml
+
+補足
+	•	--publish 指定時、operational_gate に --fail-on-unresolved を渡し UNRESOLVED#/ を FAIL にする。
 
 主な引数
 	•	--project-root

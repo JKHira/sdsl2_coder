@@ -54,6 +54,7 @@ Minimal L2 tooling lives in `L2_builder/`.
 
 Example run (project_x):
 ```
+python3 L2_builder/token_registry_gen.py --project-root project_x
 python3 L2_builder/contract_sdsl_lint.py --input sdsl2/contract --project-root project_x
 python3 L2_builder/context_pack_gen.py --input sdsl2/topology/MINIMAL_L0.sdsl2 --target @Node.NODE_A --project-root project_x
 python3 L2_builder/bundle_doc_gen.py --project-root project_x
@@ -61,10 +62,16 @@ python3 L2_builder/implementation_skeleton_gen.py --project-root project_x
 python3 L2_builder/conformance_check.py --project-root project_x
 python3 L2_builder/freshness_check.py --project-root project_x
 python3 L2_builder/exception_lint.py --project-root project_x --today 2024-01-03
+python3 L2_builder/l2_gate_runner.py --project-root project_x --today 2024-01-03 --publish
 ```
 Notes:
 - To avoid ADD_POLICY_NOT_FOUND DIAG, add a minimal `.sdsl/policy.yaml` (see `sdsl2_manuals/ope_addendum/SDSL2_Policy_Spec.md`).
 - L2 outputs are fixed under `OUTPUT/` (context_pack.yaml, bundle_doc.yaml, implementation_skeleton.yaml).
+- Registries are fixed under `OUTPUT/ssot/` and validated by token_registry_check in L1.
+
+## References (Operational Gate / UNRESOLVED)
+- L1 Operational Gate flow: `sdsl2_manuals/Operatoon_flow.md` and `sdsl2_manuals/ope_addendum/SDSL2_CI_Gates_Spec.md`.
+- `--fail-on-unresolved` usage and behavior: `coder_planning/tools_doc.md`.
 
 ## Context Pack (Addendum output)
 Deterministic extraction from topology facts:

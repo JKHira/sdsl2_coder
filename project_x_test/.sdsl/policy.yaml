@@ -1,0 +1,4 @@
+addendum:
+  enabled: true
+graph_facts:
+  duplicate_mode: "strict"

@@ -6,30 +6,32 @@ This folder contains thin wrappers plus a status map.
 ## Tools (L0 minimal set)
 
 Ready
-- `context_pack_gen.py` -> Context Pack generator (wraps `sdslv2_builder.context_pack`).
+- `context_pack_gen.py` -> Context Pack generator (SSOT topology only, OUTPUT/context_pack.yaml).
 - `manual_addendum_lint.py` -> Manual Gate (Gate A) + Addendum lint (wraps scripts).
 - `draft_builder.py` -> Normalize/fill Draft YAML and write canonical output.
+- `intent_builder.py` -> Normalize/fill Intent YAML under drafts/intent.
 - `draft_lint.py` -> Draft schema validation.
 - `ledger_builder.py` -> Build topology ledger from a node list.
-- `edgeintent_diff.py` -> Unified diff for @EdgeIntent updates from Draft.
+- `edgeintent_diff.py` -> Intent preview diff generator (stdout unified diff against OUTPUT/intent_preview.sdsl2 only; no auto-apply).
 
 Planned (not implemented yet)
 - (none)
 
-## Project root layout (recommended)
+## Repository root layout (authoritative)
 
-Create a per-project root so drafts/ledger/decisions/OUTPUT are isolated:
+Drafts live at the repository root (`drafts/`). If you need isolation, use a separate
+repo or worktree (do not nest a project root inside another repo).
 
 ```
-project_x/
+repo_root/
   drafts/
-  ledger/
+  drafts/ledger/
   decisions/
   OUTPUT/
-  sdsl2/  # read-only SSOT mirror (contract/topology)
+  sdsl2/  # SSOT (contract/topology)
 ```
 
-Pass `--project-root project_x` to L0 tools.
+Pass `--project-root <repo_root>` to L0 tools (defaults to repo root).
 
 ## Quickstart (L0)
 
@@ -37,65 +39,70 @@ Generate Context Pack:
 
 ```bash
 python L0_builder/context_pack_gen.py \
-  --input /repo/tests/inputs/addendum/L1_ok.sdsl2 \
+  --input /repo/sdsl2/topology/P1_T_ORCHESTRATION_CORE_L0.sdsl2 \
   --target @Node.NODE_A \
   --hops 1 \
-  --out /repo/project_x/OUTPUT/context_pack.yaml \
-  --project-root /repo/project_x
+  --out /repo/OUTPUT/context_pack.yaml \
+  --project-root /repo
 ```
 
 Manual + Addendum lint:
 
 ```bash
 python L0_builder/manual_addendum_lint.py \
-  --input /repo/project_x/OUTPUT/P1_T_ORCHESTRATION_CORE_L0/topology.sdsl2 \
+  --input /repo/sdsl2/topology \
   --policy-path /repo/.sdsl/policy.yaml \
-  --project-root /repo/project_x
+  --project-root /repo
 ```
 
 Draft lint/build:
 
 ```bash
-python L0_builder/draft_lint.py --input /repo/project_x/drafts/example.yaml --project-root /repo/project_x
-python L0_builder/draft_builder.py --input /repo/project_x/drafts/example.yaml --project-root /repo/project_x \
-  --scope-from /repo/project_x/sdsl2/topology/P1_T_ORCHESTRATION_CORE_L0.sdsl2
+python L0_builder/draft_lint.py --input /repo/drafts/example.yaml --project-root /repo
+python L0_builder/draft_builder.py --input /repo/drafts/example.yaml --project-root /repo \
+  --scope-from /repo/sdsl2/topology/P1_T_ORCHESTRATION_CORE_L0.sdsl2
 ```
 
 Draft builder prerequisites:
-- `project_x/decisions/edges.yaml` must exist (empty is OK).
 - `--scope-from` must point to `sdsl2/topology/*.sdsl2` under the same project root.
+Notes:
+- L0 input_hash uses SSOT only; decisions are not required.
+- Intent YAML input is restricted to `drafts/intent/*.yaml` (use `intent_builder.py`).
 
 EdgeIntent diff:
 
 ```bash
 python L0_builder/edgeintent_diff.py \
-  --input /repo/project_x/OUTPUT/P1_T_ORCHESTRATION_CORE_L0/topology.sdsl2 \
-  --draft /repo/project_x/drafts/example.yaml \
-  --project-root /repo/project_x
+  --input /repo/sdsl2/topology/P1_T_ORCHESTRATION_CORE_L0.sdsl2 \
+  --draft /repo/drafts/intent/example_intent.yaml \
+  --project-root /repo
 ```
 
 Ledger builder:
 
 ```bash
 python L0_builder/ledger_builder.py \
-  --nodes /repo/project_x/ledger/nodes.txt \
+  --nodes /repo/drafts/ledger/nodes.txt \
   --id-prefix P0_T_EXAMPLE \
-  --out /repo/project_x/ledger/topology_ledger.yaml \
-  --project-root /repo/project_x
+  --out /repo/drafts/ledger/topology_ledger.yaml \
+  --project-root /repo
 ```
 
 Ledger builder (extract @Structure tokens):
 
 ```bash
 python L0_builder/ledger_builder.py \
-  --extract-structures-from /repo/project_x/C_T/Topology/P1_ORCHESTRATION_CORE_SDSL_TOPOLOGY.md \
+  --extract-structures-from /repo/C_T/Topology/P1_ORCHESTRATION_CORE_SDSL_TOPOLOGY.md \
   --allow-structure-nodes \
   --line-start 1 --line-end 182 \
   --id-prefix P1_T_ORCHESTRATION_CORE_L0 \
-  --out /repo/project_x/ledger/topology_ledger.yaml \
-  --project-root /repo/project_x
+  --out /repo/drafts/ledger/topology_ledger.yaml \
+  --project-root /repo
 ```
 
 Notes
-- Outputs should remain under `OUTPUT/`.
+- context_pack_gen input_hash uses SSOT only (no decisions).
+- Derived outputs should remain under `OUTPUT/`.
+- Ledger outputs should remain under `drafts/ledger/`.
+- Ledger inputs are exclusive: use `--nodes` or `--extract-structures-from` (not both).
 - Placeholders (None/TBD/Opaque) are forbidden in SDSL statements.

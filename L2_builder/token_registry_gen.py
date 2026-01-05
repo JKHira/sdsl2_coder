@@ -136,6 +136,37 @@ def _load_token_map(path: Path, prefix: str) -> dict[str, str]:
     return mapping
 
 
+def _load_map_with_checks(
+    project_root: Path,
+    raw: str | None,
+    prefix: str,
+    extra_inputs: list[Path],
+    default_rel: str | None = None,
+) -> dict[str, str]:
+    if raw is None:
+        if not default_rel:
+            return {}
+        candidate = (project_root / default_rel).resolve()
+        if not candidate.exists():
+            return {}
+        path = candidate
+    else:
+        path = _resolve_path(project_root, raw)
+        if not path.exists():
+            raise ValueError("E_REGISTRY_GEN_MAP_NOT_FOUND")
+    try:
+        _ensure_inside(project_root, path, "E_REGISTRY_GEN_MAP_OUTSIDE_PROJECT")
+    except ValueError as exc:
+        raise ValueError(str(exc)) from exc
+    if path.is_symlink() or _has_symlink_parent(path, project_root):
+        raise ValueError("E_REGISTRY_GEN_MAP_SYMLINK")
+    if path.is_dir():
+        raise ValueError("E_REGISTRY_GEN_MAP_IS_DIR")
+    mapping = _load_token_map(path, prefix)
+    extra_inputs.append(path)
+    return mapping
+
+
 def _build_registry_entries(
     used_tokens: set[str],
     mapping: dict[str, str],
@@ -248,14 +279,24 @@ def main() -> int:
     ssot_map: dict[str, str] = {}
     contract_map: dict[str, str] = {}
     extra_inputs: list[Path] = []
-    if args.ssot_map:
-        ssot_map_path = _resolve_path(project_root, args.ssot_map)
-        ssot_map = _load_token_map(ssot_map_path, "SSOT.")
-        extra_inputs.append(ssot_map_path)
-    if args.contract_map:
-        contract_map_path = _resolve_path(project_root, args.contract_map)
-        contract_map = _load_token_map(contract_map_path, "CONTRACT.")
-        extra_inputs.append(contract_map_path)
+    try:
+        ssot_map = _load_map_with_checks(
+            project_root,
+            args.ssot_map,
+            "SSOT.",
+            extra_inputs,
+            default_rel="OUTPUT/ssot/ssot_registry_map.json",
+        )
+        contract_map = _load_map_with_checks(
+            project_root,
+            args.contract_map,
+            "CONTRACT.",
+            extra_inputs,
+            default_rel="OUTPUT/ssot/contract_registry_map.json",
+        )
+    except ValueError as exc:
+        print(str(exc), file=sys.stderr)
+        return 2
 
     try:
         ssot_entries = _build_registry_entries(ssot_used, ssot_map, args.allow_unresolved)

@@ -16,6 +16,7 @@ from sdslv2_builder.draft_schema import normalize_draft, REQUIRED_TOP_KEYS
 from sdslv2_builder.errors import Diagnostic
 from sdslv2_builder.input_hash import compute_input_hash
 from sdslv2_builder.op_yaml import load_yaml, dump_yaml
+from sdslv2_builder.schema_versions import DRAFT_SCHEMA_VERSION
 
 
 def _git_rev(root: Path) -> str:
@@ -45,11 +46,29 @@ def _resolve_path(base: Path, raw: str) -> Path:
     return path
 
 
+def _has_symlink_parent(path: Path, stop: Path) -> bool:
+    for parent in [path, *path.parents]:
+        if parent == stop:
+            break
+        if parent.is_symlink():
+            return True
+    return False
+
+
 def _ensure_under(path: Path, root: Path, label: str) -> bool:
     try:
         path.resolve().relative_to(root.resolve())
     except ValueError:
         print(f"E_DRAFT_{label}_OUTSIDE_PROJECT", file=sys.stderr)
+        return False
+    return True
+
+
+def _ensure_under_root(path: Path, root: Path, code: str) -> bool:
+    try:
+        path.resolve().relative_to(root.resolve())
+    except ValueError:
+        print(code, file=sys.stderr)
         return False
     return True
 
@@ -77,10 +96,25 @@ def main() -> int:
     args = ap.parse_args()
 
     project_root = Path(args.project_root).resolve() if args.project_root else ROOT
+    drafts_root = project_root / "drafts"
+    if drafts_root.is_symlink():
+        print("E_DRAFT_DRAFTS_ROOT_SYMLINK", file=sys.stderr)
+        return 2
 
     path = _resolve_path(project_root, args.input)
+    if not _ensure_under_root(path, drafts_root, "E_DRAFT_INPUT_NOT_DRAFTS_ROOT"):
+        return 2
     if not path.exists():
         print("E_DRAFT_INPUT_NOT_FOUND", file=sys.stderr)
+        return 2
+    if not path.is_file():
+        print("E_DRAFT_INPUT_NOT_FILE", file=sys.stderr)
+        return 2
+    if path.is_symlink():
+        print("E_DRAFT_INPUT_SYMLINK", file=sys.stderr)
+        return 2
+    if _has_symlink_parent(path, drafts_root):
+        print("E_DRAFT_INPUT_SYMLINK_PARENT", file=sys.stderr)
         return 2
 
     data = load_yaml(path)
@@ -100,7 +134,7 @@ def main() -> int:
             if key in {"nodes_proposed", "edge_intents_proposed", "contract_candidates", "questions", "conflicts"}:
                 data[key] = []
             elif key == "schema_version":
-                data[key] = "0.1"
+                data[key] = DRAFT_SCHEMA_VERSION
             else:
                 data[key] = ""
 
@@ -171,7 +205,7 @@ def main() -> int:
         data["scope"] = {"kind": scope_kind, "value": scope_value}
 
     data["generator_id"] = args.generator_id or data.get("generator_id", "")
-    data["source_rev"] = _git_rev(ROOT)
+    data["source_rev"] = _git_rev(project_root)
 
     try:
         input_hash = compute_input_hash(
@@ -188,14 +222,10 @@ def main() -> int:
         print(json.dumps(_diag_to_dict(diags), ensure_ascii=False, indent=2), file=sys.stderr)
         return 2
 
-    drafts_root = project_root / "drafts"
     if args.out:
         out_path = _resolve_path(project_root, args.out)
     else:
-        if _ensure_under(path, drafts_root, "DRAFTS"):
-            out_path = path
-        else:
-            out_path = drafts_root / path.name
+        out_path = path
     if not _ensure_under(out_path, drafts_root, "DRAFTS"):
         return 2
     if not _ensure_file_path(out_path, "DRAFT_OUTPUT"):

@@ -1,0 +1,2 @@
+NODE_A
+NODE_B

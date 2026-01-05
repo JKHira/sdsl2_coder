@@ -1,0 +1,18 @@
+@File {
+  profile:"topology",
+  id_prefix:"P0_T_TEST",
+  stage:"L1",
+}
+
+@Node { id:"NODE_A", kind:"component" }
+@Node { id:"NODE_B", kind:"component" }
+
+@Edge {
+  id:"EDGE_A_B",
+  from:@Node.NODE_A,
+  to:@Node.NODE_B,
+  direction:"req",
+  contract_refs:[
+    "CONTRACT.MINIMAL_EVENT",
+  ],
+}

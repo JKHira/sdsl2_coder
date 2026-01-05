@@ -84,14 +84,14 @@ def _resolve_path(base: Path, raw: str) -> Path:
 
 
 def _ensure_allowed(path: Path, project_root: Path) -> bool:
-    allowed = [project_root / "ledger", project_root / "OUTPUT"]
+    allowed = [project_root / "drafts" / "ledger"]
     for root in allowed:
         try:
             path.resolve().relative_to(root.resolve())
             return True
         except ValueError:
             continue
-    print("E_LEDGER_BUILDER_OUTPUT_OUTSIDE_PROJECT", file=sys.stderr)
+    print("E_LEDGER_BUILDER_OUTPUT_OUTSIDE_DRAFTS", file=sys.stderr)
     return False
 
 
@@ -125,7 +125,7 @@ def main() -> int:
     ap.add_argument(
         "--project-root",
         default=None,
-        help="Project root (defaults to repo root); outputs must stay under ledger/ or OUTPUT/",
+        help="Project root (defaults to repo root); outputs must stay under drafts/ledger/",
     )
     args = ap.parse_args()
 
@@ -133,6 +133,9 @@ def main() -> int:
 
     if not args.nodes and not args.extract_structures_from:
         print("E_LEDGER_BUILDER_INPUT_MISSING", file=sys.stderr)
+        return 2
+    if args.nodes and args.extract_structures_from:
+        print("E_LEDGER_BUILDER_INPUT_CONFLICT", file=sys.stderr)
         return 2
 
     nodes: list[str] = []
