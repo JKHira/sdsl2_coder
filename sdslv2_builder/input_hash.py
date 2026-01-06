@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from hashlib import sha256
+import os
 from pathlib import Path
 
 
@@ -26,11 +27,22 @@ def _content_hash(path: Path) -> str:
     return sha256(normalized.encode("utf-8")).hexdigest()
 
 
-def _validate_path(path: Path) -> None:
+def _has_symlink_parent(path: Path, stop: Path) -> bool:
+    for parent in [path, *path.parents]:
+        if parent == stop:
+            break
+        if parent.is_symlink():
+            return True
+    return False
+
+
+def _validate_path(path: Path, root: Path) -> None:
     if not path.exists():
         raise FileNotFoundError(f"INPUT_HASH_MISSING:{path}")
     if path.is_symlink():
         raise ValueError(f"INPUT_HASH_SYMLINK:{path}")
+    if _has_symlink_parent(path, root):
+        raise ValueError(f"INPUT_HASH_SYMLINK_PARENT:{path}")
 
 
 def _ssot_files(root: Path) -> list[Path]:
@@ -39,10 +51,18 @@ def _ssot_files(root: Path) -> list[Path]:
         base = root / "sdsl2" / profile
         if not base.exists():
             continue
-        for path in base.rglob("*.sdsl2"):
-            if path.is_file():
-                _validate_path(path)
-                files.append(path)
+        for dirpath, dirnames, filenames in os.walk(base, followlinks=False):
+            current = Path(dirpath)
+            for name in dirnames:
+                if (current / name).is_symlink():
+                    raise ValueError(f"INPUT_HASH_SYMLINK_DIR:{current / name}")
+            for name in filenames:
+                if not name.endswith(".sdsl2"):
+                    continue
+                path = current / name
+                if path.is_file():
+                    _validate_path(path, root)
+                    files.append(path)
     return sorted(files)
 
 
@@ -50,7 +70,7 @@ def _base_inputs(root: Path, include_decisions: bool) -> list[Path]:
     inputs = _ssot_files(root)
     if include_decisions:
         decisions = root / "decisions" / "edges.yaml"
-        _validate_path(decisions)
+        _validate_path(decisions, root)
         inputs.append(decisions)
     return sorted(inputs, key=lambda p: _rel_path(root, p))
 
@@ -65,11 +85,11 @@ def compute_input_hash(
     if include_policy:
         for policy_path in [root / ".sdsl" / "policy.yaml", root / "policy" / "exceptions.yaml"]:
             if policy_path.exists():
-                _validate_path(policy_path)
+                _validate_path(policy_path, root)
                 inputs.append(policy_path)
     if extra_inputs:
         for path in extra_inputs:
-            _validate_path(path)
+            _validate_path(path, root)
             inputs.append(path)
     inputs = sorted(dict.fromkeys(inputs), key=lambda p: _rel_path(root, p))
 

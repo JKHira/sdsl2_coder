@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -12,11 +13,12 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from sdslv2_builder.errors import Diagnostic, json_pointer
-from sdslv2_builder.lint import DIRECTION_VOCAB
+from sdslv2_builder.lint import DIRECTION_VOCAB, _capture_metadata, _parse_metadata_pairs
 from sdslv2_builder.op_yaml import load_yaml
 from sdslv2_builder.refs import CONTRACT_TOKEN_RE, RELID_RE
 
 PLACEHOLDERS = {"None", "TBD", "Opaque"}
+ANNOTATION_KIND_RE = re.compile(r"^\s*@(?P<kind>[A-Za-z_][A-Za-z0-9_]*)\b")
 
 
 def _diag(
@@ -53,6 +55,132 @@ def _ensure_inside(project_root: Path, path: Path, code: str) -> None:
         path.resolve().relative_to(project_root.resolve())
     except ValueError as exc:
         raise ValueError(code) from exc
+
+
+def _has_symlink_parent(path: Path, stop: Path) -> bool:
+    for parent in [path, *path.parents]:
+        if parent == stop:
+            break
+        if parent.is_symlink():
+            return True
+    return False
+
+
+def _strip_quotes(value: str | None) -> str | None:
+    if value is None:
+        return None
+    value = value.strip()
+    if len(value) >= 2 and value[0] == value[-1] == '"':
+        return value[1:-1]
+    return value
+
+
+def _parse_annotations(lines: list[str]) -> list[tuple[str, dict[str, str]]] | None:
+    annotations: list[tuple[str, dict[str, str]]] = []
+    for idx, line in enumerate(lines):
+        stripped = line.lstrip()
+        if stripped == "" or stripped.startswith("//"):
+            continue
+        if not stripped.startswith("@"):
+            continue
+        match = ANNOTATION_KIND_RE.match(stripped)
+        if not match:
+            continue
+        kind = match.group("kind")
+        brace_idx = line.find("{")
+        if brace_idx == -1:
+            if kind == "Node":
+                return None
+            continue
+        try:
+            meta, _ = _capture_metadata(lines, idx, brace_idx)
+        except ValueError:
+            if kind == "Node":
+                return None
+            continue
+        pairs = _parse_metadata_pairs(meta)
+        meta_map: dict[str, str] = {}
+        for key, value in pairs:
+            if key in meta_map:
+                if kind == "Node":
+                    return None
+                continue
+            meta_map[key] = value
+        annotations.append((kind, meta_map))
+    return annotations
+
+
+def _count_component_scope_matches(
+    project_root: Path,
+    rel_id: str,
+    diags: list[Diagnostic],
+) -> int:
+    ssot_root = project_root / "sdsl2" / "topology"
+    if not ssot_root.exists():
+        _diag(
+            diags,
+            "E_DECISIONS_SCOPE_INVALID",
+            "scope.kind=component requires topology files",
+            "sdsl2/topology/*.sdsl2",
+            "missing",
+            json_pointer("scope", "value"),
+        )
+        return -1
+    if ssot_root.is_symlink() or _has_symlink_parent(ssot_root, project_root):
+        _diag(
+            diags,
+            "E_DECISIONS_SCOPE_INVALID",
+            "scope.kind=component requires non-symlink topology",
+            "non-symlink",
+            str(ssot_root),
+            json_pointer("scope", "value"),
+        )
+        return -1
+    count = 0
+    for path in sorted(ssot_root.rglob("*.sdsl2")):
+        if not path.is_file():
+            continue
+        if path.is_symlink() or _has_symlink_parent(path, ssot_root):
+            _diag(
+                diags,
+                "E_DECISIONS_SCOPE_INVALID",
+                "scope.kind=component requires non-symlink topology",
+                "non-symlink",
+                str(path),
+                json_pointer("scope", "value"),
+            )
+            return -1
+        try:
+            text = path.read_text(encoding="utf-8")
+        except (OSError, UnicodeDecodeError) as exc:
+            _diag(
+                diags,
+                "E_DECISIONS_SCOPE_INVALID",
+                "scope.kind=component requires readable topology",
+                "readable UTF-8 file",
+                str(exc),
+                json_pointer("scope", "value"),
+            )
+            return -1
+        annotations = _parse_annotations(text.splitlines())
+        if annotations is None:
+            _diag(
+                diags,
+                "E_DECISIONS_SCOPE_INVALID",
+                "scope.kind=component requires parseable @Node metadata",
+                "valid @Node { ... }",
+                str(path),
+                json_pointer("scope", "value"),
+            )
+            return -1
+        for kind, meta in annotations:
+            if kind != "Node":
+                continue
+            node_id = _strip_quotes(meta.get("id")) or ""
+            if node_id == rel_id:
+                count += 1
+                break
+    return count
 
 
 def _validate_scope(
@@ -100,7 +228,17 @@ def _validate_scope(
                 value,
                 json_pointer("scope", "value"),
             )
-        full = (project_root / value).resolve()
+        raw_path = project_root / value
+        if raw_path.is_symlink() or _has_symlink_parent(raw_path, project_root):
+            _diag(
+                diags,
+                "E_DECISIONS_SCOPE_INVALID",
+                "scope.value must not be symlink",
+                "non-symlink file",
+                str(raw_path),
+                json_pointer("scope", "value"),
+            )
+        full = raw_path.resolve()
         try:
             full.relative_to(project_root.resolve())
         except ValueError:
@@ -121,6 +259,15 @@ def _validate_scope(
                 value,
                 json_pointer("scope", "value"),
             )
+        elif not full.is_file():
+            _diag(
+                diags,
+                "E_DECISIONS_SCOPE_INVALID",
+                "scope.value must be file",
+                "file",
+                value,
+                json_pointer("scope", "value"),
+            )
         if not value.startswith("sdsl2/topology/") or not value.endswith(".sdsl2"):
             _diag(
                 diags,
@@ -128,6 +275,28 @@ def _validate_scope(
                 "scope.value must be sdsl2/topology/*.sdsl2",
                 "sdsl2/topology/*.sdsl2",
                 value,
+                json_pointer("scope", "value"),
+            )
+    if kind == "component" and value:
+        count = _count_component_scope_matches(project_root, value, diags)
+        if count < 0:
+            return {"kind": str(kind or ""), "value": str(value or "")}
+        if count == 0:
+            _diag(
+                diags,
+                "E_DECISIONS_SCOPE_INVALID",
+                "scope.value component not found or ambiguous",
+                "unique @Node rel_id in topology",
+                "not found",
+                json_pointer("scope", "value"),
+            )
+        elif count > 1:
+            _diag(
+                diags,
+                "E_DECISIONS_SCOPE_INVALID",
+                "scope.value component not found or ambiguous",
+                "unique @Node rel_id in topology",
+                f"multiple files: {count}",
                 json_pointer("scope", "value"),
             )
     return {"kind": str(kind or ""), "value": str(value or "")}
@@ -138,7 +307,18 @@ def parse_decisions_file(
     project_root: Path,
 ) -> tuple[dict[str, object] | None, list[Diagnostic]]:
     diags: list[Diagnostic] = []
-    data = load_yaml(path)
+    try:
+        data = load_yaml(path)
+    except Exception as exc:
+        _diag(
+            diags,
+            "E_DECISIONS_SCHEMA_INVALID",
+            "decisions yaml parse failed",
+            "valid YAML",
+            str(exc),
+            json_pointer(),
+        )
+        return None, diags
     if not isinstance(data, dict):
         _diag(
             diags,

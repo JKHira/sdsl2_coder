@@ -38,10 +38,10 @@ def load_manifest(path: Path) -> dict:
         raise SystemExit(f"MANIFEST_INVALID_JSON: {exc}") from exc
 
 
-def resolve_path(raw: str) -> Path:
+def resolve_path(raw: str, base: Path) -> Path:
     p = Path(raw)
     if not p.is_absolute():
-        p = Path.cwd() / p
+        p = base / p
     return p
 
 
@@ -74,6 +74,40 @@ def load_diags_from_file(path: Path) -> list[dict]:
     return load_diags_from_text(path.read_text(encoding="utf-8"))
 
 
+def _has_symlink_parent(path: Path, stop: Path) -> bool:
+    for parent in [path, *path.parents]:
+        if parent == stop:
+            break
+        if parent.is_symlink():
+            return True
+    return False
+
+
+def find_repo_root(start: Path) -> Path:
+    for candidate in [start, *start.parents]:
+        if (candidate / "sdslv2_builder").is_dir():
+            return candidate
+    return Path.cwd()
+
+
+def ensure_output_root(project_root: Path) -> Path:
+    output_root = (project_root / "OUTPUT").resolve()
+    if output_root.name != "OUTPUT":
+        raise SystemExit(f"OUTPUT_ROOT_INVALID: {output_root}")
+    try:
+        output_root.relative_to(project_root.resolve())
+    except ValueError as exc:
+        raise SystemExit(f"OUTPUT_ROOT_OUTSIDE_PROJECT: {output_root}") from exc
+    if output_root.is_symlink() or _has_symlink_parent(output_root, project_root):
+        raise SystemExit(f"OUTPUT_ROOT_SYMLINK: {output_root}")
+    return output_root
+
+
+def cleanup_output_root(output_root: Path) -> None:
+    if output_root.exists():
+        shutil.rmtree(output_root)
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument(
@@ -88,8 +122,14 @@ def main() -> int:
     )
     args = ap.parse_args()
 
-    manifest_path = resolve_path(args.manifest)
+    manifest_path = Path(args.manifest)
+    if not manifest_path.is_absolute():
+        manifest_path = (Path.cwd() / manifest_path).resolve()
+    else:
+        manifest_path = manifest_path.resolve()
     manifest = load_manifest(manifest_path)
+    project_root = find_repo_root(manifest_path.parent.resolve())
+    output_root = ensure_output_root(project_root)
     cases = manifest.get("cases", [])
     if not isinstance(cases, list):
         raise SystemExit("MANIFEST_CASES_NOT_LIST")
@@ -102,10 +142,10 @@ def main() -> int:
 
     for case in cases:
         expect = case.get("expect")
-        ledger = resolve_path(case.get("ledger", "")) if case.get("ledger") else None
-        output = resolve_path(case.get("output", "")) if case.get("output") else None
-        golden = resolve_path(case.get("golden", "")) if case.get("golden") else None
-        input_path = resolve_path(case.get("input", "")) if case.get("input") else None
+        ledger = resolve_path(case.get("ledger", ""), project_root) if case.get("ledger") else None
+        output = resolve_path(case.get("output", ""), project_root) if case.get("output") else None
+        golden = resolve_path(case.get("golden", ""), project_root) if case.get("golden") else None
+        input_path = resolve_path(case.get("input", ""), project_root) if case.get("input") else None
         contract_case = case.get("contract_case")
 
         if expect:
@@ -113,7 +153,7 @@ def main() -> int:
             expected_code = int(expect.get("exit_code", 2))
             diag_golden = expect.get("diagnostics_golden")
             if diag_golden:
-                diag_golden = resolve_path(diag_golden)
+                diag_golden = resolve_path(diag_golden, project_root)
 
             if phase == "contract":
                 if not contract_case:
@@ -225,10 +265,12 @@ def main() -> int:
                 failures += 1
                 continue
 
-            if output is not None and output.parent.exists():
-                shutil.rmtree(output.parent)
+            if output is not None:
+                cleanup_output_root(output_root)
 
-            run_res = run_cmd([py, "-m", "sdslv2_builder.run", "--ledger", str(ledger), "--out-dir", "OUTPUT"])
+            run_res = run_cmd(
+                [py, "-m", "sdslv2_builder.run", "--ledger", str(ledger), "--out-dir", str(output_root)]
+            )
             if phase == "run":
                 if run_res.returncode != expected_code:
                     print(f"[FAIL] run exit code {run_res.returncode} != {expected_code}: {ledger}")
@@ -253,7 +295,7 @@ def main() -> int:
                 failures += 1
                 continue
 
-            lint_res = run_cmd([py, "-m", "sdslv2_builder.lint", "--input", "OUTPUT"])
+            lint_res = run_cmd([py, "-m", "sdslv2_builder.lint", "--input", str(output_root)])
             if lint_res.returncode != expected_code:
                 print(f"[FAIL] lint exit code {lint_res.returncode} != {expected_code}: {ledger}")
                 if lint_res.stderr:
@@ -283,10 +325,9 @@ def main() -> int:
             failures += 1
             continue
 
-        if output is not None and output.parent.exists():
-            shutil.rmtree(output.parent)
+        cleanup_output_root(output_root)
 
-        run_res = run_cmd([py, "-m", "sdslv2_builder.run", "--ledger", str(ledger), "--out-dir", "OUTPUT"])
+        run_res = run_cmd([py, "-m", "sdslv2_builder.run", "--ledger", str(ledger), "--out-dir", str(output_root)])
         if run_res.returncode != 0:
             print(f"[FAIL] run failed: {ledger}")
             if run_res.stderr:
@@ -294,7 +335,7 @@ def main() -> int:
             failures += 1
             continue
 
-        lint_res = run_cmd([py, "-m", "sdslv2_builder.lint", "--input", "OUTPUT"])
+        lint_res = run_cmd([py, "-m", "sdslv2_builder.lint", "--input", str(output_root)])
         if lint_res.returncode != 0:
             print(f"[FAIL] lint failed: {ledger}")
             if lint_res.stderr:
@@ -302,7 +343,17 @@ def main() -> int:
             failures += 1
             continue
 
-        if output is None or not output.exists():
+        if output is None:
+            print("[FAIL] output not configured for case")
+            failures += 1
+            continue
+        try:
+            output.resolve().relative_to(output_root)
+        except ValueError:
+            print(f"[FAIL] output must be under OUTPUT: {output}")
+            failures += 1
+            continue
+        if not output.exists():
             print(f"[FAIL] output not found: {output}")
             failures += 1
             continue

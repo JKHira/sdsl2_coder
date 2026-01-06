@@ -5,7 +5,7 @@ from pathlib import Path
 import re
 
 from .lint import _capture_metadata, _parse_metadata_pairs, _split_list_items
-from .refs import parse_internal_ref
+from .refs import RELID_RE, parse_internal_ref
 
 
 ANNOTATION_KIND_RE = re.compile(r"^\s*@(?P<kind>[A-Za-z_][A-Za-z0-9_]*)\b")
@@ -107,6 +107,8 @@ def _parse_nodes(annotations: list[tuple[str, dict[str, str], int]]) -> list[Nod
         if not rel_id:
             continue
         rel_id = _strip_quotes(rel_id)
+        if not RELID_RE.match(rel_id):
+            raise ValueError("E_CONTEXT_PACK_NODE_ID_INVALID")
         nodes.append(NodeEntry(rel_id=rel_id))
     return nodes
 
@@ -168,6 +170,9 @@ def _parse_edge_intents(
         raw_id = meta.get("id")
         if not raw_from or not raw_to or not raw_id:
             continue
+        intent_id = _strip_quotes(raw_id)
+        if not RELID_RE.match(intent_id):
+            raise ValueError("E_CONTEXT_PACK_EDGEINTENT_ID_INVALID")
         from_ref = parse_internal_ref(raw_from)
         to_ref = parse_internal_ref(raw_to)
         if not from_ref or not to_ref or from_ref.kind != "Node" or to_ref.kind != "Node":
@@ -181,7 +186,7 @@ def _parse_edge_intents(
         contract_hint = meta.get("contract_hint")
         intents.append(
             EdgeIntentEntry(
-                intent_id=_strip_quotes(raw_id),
+                intent_id=intent_id,
                 from_id=from_ref.rel_id,
                 to_id=to_ref.rel_id,
                 direction=_strip_quotes(direction) if direction else None,
@@ -194,13 +199,13 @@ def _parse_edge_intents(
     return intents
 
 
-def _edge_sort_key(edge: EdgeEntry, node_sort_id: dict[str, str]) -> tuple[str, str, str, str, tuple[str, ...]]:
+def _edge_sort_key(edge: EdgeEntry, node_sort_id: dict[str, str]) -> tuple[str, str, str, str, str]:
     return (
         node_sort_id.get(edge.from_id, edge.from_id),
         node_sort_id.get(edge.to_id, edge.to_id),
         edge.direction or "",
         edge.channel or "",
-        edge.contract_refs,
+        "|".join(edge.contract_refs),
     )
 
 
@@ -246,6 +251,8 @@ def extract_context_pack(path: Path, target: str, hops: int = 1) -> str:
         raise ValueError(f"E_CONTEXT_PACK_PROFILE_INVALID: {profile}")
     if not id_prefix:
         raise ValueError("E_CONTEXT_PACK_ID_PREFIX_MISSING")
+    if not RELID_RE.match(id_prefix):
+        raise ValueError("E_CONTEXT_PACK_ID_PREFIX_INVALID")
 
     target_ref = parse_internal_ref(target)
     if not target_ref or target_ref.kind != "Node":

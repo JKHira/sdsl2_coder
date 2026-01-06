@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 import re
@@ -30,11 +31,34 @@ def _count_indent(line: str) -> int:
     return len(line) - len(line.lstrip(" "))
 
 
-def _parse_block(lines: list[str], start: int, indent: int) -> tuple[Any, int]:
+@dataclass(frozen=True)
+class DuplicateKey:
+    path: str
+    key: str
+    line: int
+
+
+def _json_pointer(parts: list[str]) -> str:
+    if not parts:
+        return ""
+    escaped = [p.replace("~", "~0").replace("/", "~1") for p in parts]
+    return "/" + "/".join(escaped)
+
+
+def _parse_block(
+    lines: list[str],
+    start: int,
+    indent: int,
+    path: list[str] | None = None,
+    duplicates: list[DuplicateKey] | None = None,
+    allow_duplicates: bool = True,
+) -> tuple[Any, int]:
     i = start
     block_type = None
     items: list[Any] = []
     mapping: dict[str, Any] = {}
+    if path is None:
+        path = []
 
     while i < len(lines):
         line = lines[i]
@@ -53,8 +77,16 @@ def _parse_block(lines: list[str], start: int, indent: int) -> tuple[Any, int]:
             if block_type != "list":
                 raise ValueError(f"YAML_MIXED_BLOCK:{i + 1}")
             rest = content[1:].lstrip()
+            item_index = str(len(items))
             if rest == "":
-                value, i = _parse_block(lines, i + 1, indent + 2)
+                value, i = _parse_block(
+                    lines,
+                    i + 1,
+                    indent + 2,
+                    path + [item_index],
+                    duplicates,
+                    allow_duplicates,
+                )
             else:
                 if ":" in rest:
                     key, tail = rest.split(":", 1)
@@ -64,7 +96,14 @@ def _parse_block(lines: list[str], start: int, indent: int) -> tuple[Any, int]:
                         raise ValueError(f"YAML_MISSING_KEY:{i + 1}")
                     value = {}
                     if tail == "":
-                        nested, i = _parse_block(lines, i + 1, indent + 2)
+                        nested, i = _parse_block(
+                            lines,
+                            i + 1,
+                            indent + 2,
+                            path + [item_index, key],
+                            duplicates,
+                            allow_duplicates,
+                        )
                         value[key] = nested
                     else:
                         value[key] = _parse_scalar(tail)
@@ -76,9 +115,28 @@ def _parse_block(lines: list[str], start: int, indent: int) -> tuple[Any, int]:
                     if probe < len(lines):
                         probe_indent = _count_indent(lines[probe])
                         if probe_indent == indent + 2 and not lines[probe].lstrip().startswith("-"):
-                            extra, i = _parse_block(lines, probe, indent + 2)
+                            extra, i = _parse_block(
+                                lines,
+                                probe,
+                                indent + 2,
+                                path + [item_index],
+                                duplicates,
+                                allow_duplicates,
+                            )
                             if not isinstance(extra, dict):
                                 raise ValueError(f"YAML_LIST_ITEM_NOT_DICT:{probe + 1}")
+                            if duplicates is not None:
+                                for extra_key in extra.keys():
+                                    if extra_key in value:
+                                        duplicates.append(
+                                            DuplicateKey(
+                                                path=_json_pointer(path + [item_index, extra_key]),
+                                                key=extra_key,
+                                                line=probe + 1,
+                                            )
+                                        )
+                                        if not allow_duplicates:
+                                            raise ValueError(f"YAML_DUPLICATE_KEY:{probe + 1}:{extra_key}")
                             value.update(extra)
                         elif probe_indent > indent and lines[probe].lstrip().startswith("-"):
                             raise ValueError(f"YAML_UNSUPPORTED_LIST_ITEM:{probe + 1}")
@@ -97,27 +155,50 @@ def _parse_block(lines: list[str], start: int, indent: int) -> tuple[Any, int]:
             raise ValueError(f"YAML_MIXED_BLOCK:{i + 1}")
         if ":" not in content:
             raise ValueError(f"YAML_MISSING_COLON:{i + 1}")
+        line_no = i + 1
         key, rest = content.split(":", 1)
         key = key.strip()
         rest = rest.lstrip()
         if rest == "":
-            value, i = _parse_block(lines, i + 1, indent + 2)
+            value, i = _parse_block(
+                lines,
+                i + 1,
+                indent + 2,
+                path + [key],
+                duplicates,
+                allow_duplicates,
+            )
         else:
             value = _parse_scalar(rest)
             i += 1
+        if duplicates is not None and key in mapping:
+            duplicates.append(
+                DuplicateKey(path=_json_pointer(path + [key]), key=key, line=line_no)
+            )
+            if not allow_duplicates:
+                raise ValueError(f"YAML_DUPLICATE_KEY:{line_no}:{key}")
         mapping[key] = value
     return (items if block_type == "list" else mapping), i
 
 
 def load_yaml(path: Path) -> Any:
+    data, _ = load_yaml_with_duplicates(path, allow_duplicates=True)
+    return data
+
+
+def load_yaml_with_duplicates(
+    path: Path,
+    allow_duplicates: bool = True,
+) -> tuple[Any, list[DuplicateKey]]:
     text = path.read_text(encoding="utf-8")
     if path.suffix.lower() == ".json":
         import json
 
-        return json.loads(text)
+        return json.loads(text), []
     lines = text.splitlines()
-    data, _ = _parse_block(lines, 0, 0)
-    return data
+    duplicates: list[DuplicateKey] = []
+    data, _ = _parse_block(lines, 0, 0, [], duplicates, allow_duplicates)
+    return data, duplicates
 
 
 def _needs_quotes(value: str) -> bool:

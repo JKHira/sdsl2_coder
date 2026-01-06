@@ -10,6 +10,8 @@ import re
 
 ROOT = Path(__file__).resolve().parents[1]
 
+from sdslv2_builder.io_atomic import atomic_write_text
+
 
 RELID_RE = re.compile(r"^[A-Z][A-Z0-9_]{2,63}$")
 STRUCTURE_TOKEN_RE = re.compile(r"@Structure\.([A-Z][A-Z0-9_]{2,63})")
@@ -83,6 +85,15 @@ def _resolve_path(base: Path, raw: str) -> Path:
     return path
 
 
+def _has_symlink_parent(path: Path, stop: Path) -> bool:
+    for parent in [path, *path.parents]:
+        if parent == stop:
+            break
+        if parent.is_symlink():
+            return True
+    return False
+
+
 def _ensure_allowed(path: Path, project_root: Path) -> bool:
     allowed = [project_root / "drafts" / "ledger"]
     for root in allowed:
@@ -130,6 +141,10 @@ def main() -> int:
     args = ap.parse_args()
 
     project_root = Path(args.project_root).resolve() if args.project_root else ROOT
+    ledger_root = project_root / "drafts" / "ledger"
+    if ledger_root.is_symlink() or _has_symlink_parent(ledger_root, project_root):
+        print("E_LEDGER_BUILDER_LEDGER_ROOT_SYMLINK", file=sys.stderr)
+        return 2
 
     if not args.nodes and not args.extract_structures_from:
         print("E_LEDGER_BUILDER_INPUT_MISSING", file=sys.stderr)
@@ -189,8 +204,21 @@ def main() -> int:
         return 2
     if not _ensure_file_path(out_path, "LEDGER_OUTPUT"):
         return 2
+    if out_path.is_symlink():
+        print("E_LEDGER_BUILDER_OUTPUT_SYMLINK", file=sys.stderr)
+        return 2
+    if _has_symlink_parent(out_path, project_root):
+        print("E_LEDGER_BUILDER_OUTPUT_SYMLINK_PARENT", file=sys.stderr)
+        return 2
     out_path.parent.mkdir(parents=True, exist_ok=True)
-    out_path.write_text(content, encoding="utf-8")
+    try:
+        atomic_write_text(out_path, content, symlink_code="E_LEDGER_BUILDER_OUTPUT_SYMLINK")
+    except ValueError as exc:
+        print(str(exc), file=sys.stderr)
+        return 2
+    except OSError as exc:
+        print(f"E_LEDGER_BUILDER_WRITE_FAILED:{exc}", file=sys.stderr)
+        return 2
     return 0
 
 

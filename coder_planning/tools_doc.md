@@ -64,6 +64,7 @@ CLI：
 	•	--out は OUTPUT/context_pack.yaml のみ許可（E_CONTEXT_PACK_OUTPUT_PATH_INVALID）
 	•	--out が既存ディレクトリは不可（E_CONTEXT_PACK_OUTPUT_IS_DIRECTORY）
 	•	入力が存在しない場合：E_CONTEXT_PACK_INPUT_NOT_FOUND: <path>
+	•	source_rev：git rev-parse HEAD 失敗時は UNKNOWN（stderrに警告を出すが生成は続行）
 
 出力ファイル
 	•	既定：OUTPUT/context_pack.yaml
@@ -680,6 +681,28 @@ intent_lint.py
 
 ⸻
 
+next_actions_gen.py
+
+役割
+	•	drafts/intent と decisions/edges.yaml の差分から、次に埋めるべき Decision を機械列挙する。
+	•	OUTPUT/decisions_needed.yaml と OUTPUT/diagnostics_summary.yaml を生成する。
+
+使い方（最小）
+	•	python3 L1_builder/next_actions_gen.py --project-root <project>
+
+主な引数
+	•	--project-root
+	•	--intent-root（既定 drafts/intent 固定）
+	•	--decisions-path（既定 decisions/edges.yaml）
+	•	--out-decisions（既定 OUTPUT/decisions_needed.yaml）
+	•	--out-diagnostics（既定 OUTPUT/diagnostics_summary.yaml）
+
+制約
+	•	出力は OUTPUT 配下のみ許可
+	•	出力先の symlink は FAIL
+
+⸻
+
 no_ssot_promotion_check.py
 
 役割
@@ -831,6 +854,7 @@ bundle_doc_gen.py
 	•	--out（既定 OUTPUT/bundle_doc.yaml）
 	•	--project-root（既定 repo root）
 	•	--source-rev（省略時 git rev）
+	•	--allow-unknown-source-rev（git rev失敗時に UNKNOWN を許容）
 	•	--no-decisions（input_hashから decisions/edges.yaml を除外）
 	•	--include-policy（policyをinput_hashに含める）
 
@@ -852,9 +876,12 @@ bundle_doc_gen.py
 	•	out.parent が存在してdirでない：E_BUNDLE_DOC_OUTPUT_PARENT_NOT_DIR
 
 provenance生成内容
-	•	source_rev：--source-rev 指定がなければ git rev-parse HEAD（失敗時 E_BUNDLE_DOC_SOURCE_REV_MISSING）
+	•	source_rev：--source-rev 指定がなければ git rev-parse HEAD
+	•	git rev取得失敗：E_BUNDLE_DOC_SOURCE_REV_*（--allow-unknown-source-rev で UNKNOWN 許容）
 	•	input_hash：compute_input_hash(project_root, include_decisions=..., include_policy=...)
 	•	失敗：E_BUNDLE_DOC_INPUT_HASH_FAILED:<exc>
+	•	OUTPUT/decisions_needed.yaml が存在する場合は Supplementary: decisions_needed を先頭に追加
+	•	OUTPUT/diagnostics_summary.yaml が存在する場合は Supplementary: diagnostics_summary を provenance の後に追加
 
 provenanceブロック形式（ファイル末尾へ追記）
 	•	context_pack.yaml のテキストを読み、末尾に改行が無ければ追加
@@ -958,6 +985,7 @@ context_pack_gen.py（L2版）
 	•	--hops：近傍ホップ（>=0）
 	•	--out：既定 OUTPUT/context_pack.yaml または -（stdout）
 	•	--project-root
+	•	--allow-unknown-source-rev：git rev取得失敗時に UNKNOWN を許容
 
 制約
 	•	hops < 0：E_CONTEXT_PACK_HOPS_INVALID
@@ -966,6 +994,7 @@ context_pack_gen.py（L2版）
 	•	input 不在：E_CONTEXT_PACK_INPUT_NOT_FOUND: <path>
 	•	input がdir：E_CONTEXT_PACK_INPUT_IS_DIRECTORY
 	•	extract_context_pack が ValueError：その文字列を出して exit 2
+	•	git rev取得失敗：E_CONTEXT_PACK_SOURCE_REV_*（--allow-unknown-source-rev で UNKNOWN 許容）
 
 出力先
 	•	--out != "-" の場合、出力パスは標準 OUTPUT/context_pack.yaml に一致必須

@@ -114,6 +114,26 @@ def main() -> int:
         print("E_FRESHNESS_INPUT_SYMLINK", file=sys.stderr)
         return 2
 
+    output_root = (project_root / "OUTPUT").resolve()
+    decisions_needed_path = (project_root / "OUTPUT" / "decisions_needed.yaml").resolve()
+    diagnostics_summary_path = (project_root / "OUTPUT" / "diagnostics_summary.yaml").resolve()
+    extra_inputs: list[Path] = []
+    for path in [decisions_needed_path, diagnostics_summary_path]:
+        if not path.exists():
+            continue
+        try:
+            path.resolve().relative_to(output_root)
+        except ValueError:
+            print("E_FRESHNESS_SUPPLEMENTARY_OUTSIDE_OUTPUT", file=sys.stderr)
+            return 2
+        if has_symlink_parent(path, project_root) or path.is_symlink():
+            print("E_FRESHNESS_SUPPLEMENTARY_SYMLINK", file=sys.stderr)
+            return 2
+        if path.is_dir():
+            print("E_FRESHNESS_SUPPLEMENTARY_IS_DIRECTORY", file=sys.stderr)
+            return 2
+        extra_inputs.append(path)
+
     lines = input_path.read_text(encoding="utf-8").splitlines()
     provenance = _parse_provenance(lines)
     if provenance is None:
@@ -146,6 +166,7 @@ def main() -> int:
             project_root,
             include_decisions=not args.no_decisions,
             include_policy=args.include_policy,
+            extra_inputs=extra_inputs,
         )
     except Exception as exc:
         print(f"E_FRESHNESS_INPUT_HASH_FAILED:{exc}", file=sys.stderr)

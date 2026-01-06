@@ -22,6 +22,7 @@ Non-scope: Grammar/semantics changes; tool implementation details.
   - file: repo-relative topology .sdsl2 path.
   - id_prefix: target topology id_prefix.
   - component: @Node rel_id in target topology.
+  - component rel_id MUST be globally unique across sdsl2/topology/**/*.sdsl2; if not unique or missing, decisions_lint MUST FAIL.
 - For scope.kind:"component", Promote applies only when from == value or to == value.
 - Decisions for topology edges MUST be stored in decisions/edges.yaml.
 - Decisions for contract structures/rules MUST be stored in decisions/contracts.yaml.

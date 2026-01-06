@@ -12,7 +12,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from L2_builder.common import ROOT as REPO_ROOT, ensure_inside, resolve_path
+from L2_builder.common import ROOT as REPO_ROOT, ensure_inside, has_symlink_parent, resolve_path
 from sdslv2_builder.errors import Diagnostic, json_pointer
 from sdslv2_builder.lint import _capture_metadata, _parse_metadata_pairs
 from sdslv2_builder.refs import RELID_RE
@@ -244,11 +244,15 @@ def check_file(path: Path) -> list[Diagnostic]:
     return diags
 
 
-def iter_sdsl_files(path: Path) -> list[Path]:
+def iter_sdsl_files(path: Path, project_root: Path) -> list[Path]:
     if path.is_file():
+        if path.is_symlink() or has_symlink_parent(path, project_root):
+            return []
         return [path]
     return sorted(
-        p for p in path.rglob("*.sdsl2") if p.is_file() and not p.is_symlink()
+        p
+        for p in path.rglob("*.sdsl2")
+        if p.is_file() and not p.is_symlink() and not has_symlink_parent(p, project_root)
     )
 
 
@@ -262,13 +266,19 @@ def main() -> int:
 
     files: list[Path] = []
     for raw in args.input:
+        raw_path = Path(raw)
+        if not raw_path.is_absolute():
+            raw_path = project_root / raw_path
+        if raw_path.is_symlink() or has_symlink_parent(raw_path, project_root):
+            print("E_CONTRACT_LINT_INPUT_SYMLINK", file=sys.stderr)
+            return 2
         input_path = resolve_path(project_root, raw)
         try:
             ensure_inside(project_root, input_path, "E_CONTRACT_LINT_INPUT_OUTSIDE_PROJECT")
         except ValueError:
             print("E_CONTRACT_LINT_INPUT_OUTSIDE_PROJECT", file=sys.stderr)
             return 2
-        files.extend(iter_sdsl_files(input_path))
+        files.extend(iter_sdsl_files(input_path, project_root))
 
     if not files:
         print("E_INPUT_NOT_FOUND: no .sdsl2 files", file=sys.stderr)

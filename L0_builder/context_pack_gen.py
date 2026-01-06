@@ -12,6 +12,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from sdslv2_builder.context_pack import extract_context_pack
+from sdslv2_builder.io_atomic import atomic_write_text
 from sdslv2_builder.input_hash import compute_input_hash
 
 DEFAULT_OUT = "OUTPUT/context_pack.yaml"
@@ -33,15 +34,21 @@ def _has_symlink_parent(path: Path, stop: Path) -> bool:
     return False
 
 
-def _git_rev(project_root: Path) -> str:
-    result = subprocess.run(
-        ["git", "-C", str(project_root), "rev-parse", "HEAD"],
-        capture_output=True,
-        text=True,
-    )
+def _git_rev(project_root: Path) -> tuple[str, str | None]:
+    try:
+        result = subprocess.run(
+            ["git", "-C", str(project_root), "rev-parse", "HEAD"],
+            capture_output=True,
+            text=True,
+        )
+    except FileNotFoundError:
+        return "UNKNOWN", "E_CONTEXT_PACK_SOURCE_REV_GIT_MISSING"
     if result.returncode != 0:
-        raise ValueError("E_CONTEXT_PACK_SOURCE_REV_MISSING")
-    return result.stdout.strip()
+        return "UNKNOWN", "E_CONTEXT_PACK_SOURCE_REV_MISSING"
+    rev = result.stdout.strip()
+    if not rev:
+        return "UNKNOWN", "E_CONTEXT_PACK_SOURCE_REV_EMPTY"
+    return rev, None
 
 
 def _quote(value: str) -> str:
@@ -97,11 +104,9 @@ def main() -> int:
         print(str(exc), file=sys.stderr)
         return 2
 
-    try:
-        source_rev = _git_rev(project_root)
-    except ValueError as exc:
-        print(str(exc), file=sys.stderr)
-        return 2
+    source_rev, warn = _git_rev(project_root)
+    if warn:
+        print(warn, file=sys.stderr)
     try:
         result = compute_input_hash(
             project_root,
@@ -155,7 +160,14 @@ def main() -> int:
         return 2
 
     out_path.parent.mkdir(parents=True, exist_ok=True)
-    out_path.write_text(output, encoding="utf-8")
+    try:
+        atomic_write_text(out_path, output, symlink_code="E_CONTEXT_PACK_OUTPUT_SYMLINK")
+    except ValueError as exc:
+        print(str(exc), file=sys.stderr)
+        return 2
+    except OSError as exc:
+        print(f"E_CONTEXT_PACK_WRITE_FAILED:{exc}", file=sys.stderr)
+        return 2
     return 0
 
 

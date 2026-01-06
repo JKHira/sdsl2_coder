@@ -62,6 +62,7 @@ Non-scope: CI implementation; semantics beyond referenced specs.
 
 ### gates
 - draft_schema: FAIL | DIAG | IGNORE
+- duplicate_keys: FAIL | DIAG | IGNORE
 - evidence_coverage: FAIL | DIAG | IGNORE
 - no_ssot_promotion: FAIL | DIAG | IGNORE
 - readiness_check: FAIL | DIAG | IGNORE

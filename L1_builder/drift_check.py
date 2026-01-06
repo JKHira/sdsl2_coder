@@ -111,7 +111,12 @@ def _find_file_header(lines: list[str]) -> dict[str, str]:
         raise ValueError("E_DRIFT_FILE_HEADER_INVALID")
     meta, _ = _capture_metadata(lines, idx, brace_idx)
     pairs = _parse_metadata_pairs(meta)
-    return {k: v for k, v in pairs}
+    meta_map: dict[str, str] = {}
+    for key, value in pairs:
+        if key in meta_map:
+            raise ValueError(f"E_DRIFT_DUPLICATE_KEY: line {idx + 1} key {key}")
+        meta_map[key] = value
+    return meta_map
 
 
 def _strip_quotes(value: str | None) -> str | None:

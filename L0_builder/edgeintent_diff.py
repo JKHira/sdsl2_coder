@@ -24,6 +24,13 @@ def _escape(value: str) -> str:
     return value
 
 
+def _strip_quotes(value: str) -> str:
+    value = value.strip()
+    if len(value) >= 2 and value[0] == value[-1] and value[0] in {'"', "'"}:
+        return value[1:-1]
+    return value
+
+
 def _extract_edgeintents(lines: list[str]) -> dict[str, tuple[int, int]]:
     intents: dict[str, tuple[int, int]] = {}
     for idx, line in enumerate(lines):
@@ -38,7 +45,7 @@ def _extract_edgeintents(lines: list[str]) -> dict[str, tuple[int, int]]:
         intent_id = meta_map.get("id")
         if not intent_id:
             continue
-        intent_id = intent_id.strip().strip('"')
+        intent_id = _strip_quotes(intent_id)
         intents[intent_id] = (idx, end_line)
     return intents
 

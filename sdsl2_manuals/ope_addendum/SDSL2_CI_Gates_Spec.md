@@ -11,6 +11,7 @@ Non-scope: Tool implementation details.
 - Freshness: Derived Outputs match the current SSOT and Explicit Inputs.
 - Decision Log: Optional record of decisions.
 - DRAFT-SCHEMA: Draft schema validation (see SDSL2_Decision_Draft_Spec.md).
+- DUPLICATE-KEYS: YAML duplicate key detection for operational inputs.
 - EVIDENCE-COVERAGE: Evidence validity and coverage checks (see SDSL2_Decision_Evidence_Spec.md).
 - READINESS-CHECK: Promotion readiness enforcement (see SDSL2_Decisions_Spec.md).
 - NO-SSOT-PROMOTION: Detect Draft/Evidence mixed into SSOT or decisions roots.
@@ -29,6 +30,7 @@ Non-scope: Tool implementation details.
 
 ## Operational Gate Checks (Normative)
 - DRAFT-SCHEMA
+- DUPLICATE-KEYS
 - EVIDENCE-COVERAGE
 - READINESS-CHECK
 - NO-SSOT-PROMOTION
@@ -40,6 +42,7 @@ Non-scope: Tool implementation details.
 
 ## Operational Gate Rules
 - DRAFT-SCHEMA validates drafts/*.yaml with SDSL2_Decision_Draft_Spec.md and drafts/intent/*.yaml with SDSL2_Intent_YAML_Spec.md; symlinks under drafts/ or drafts/intent/ are FAIL; it reports MAJOR mismatch with a dedicated diagnostic code.
+- DUPLICATE-KEYS validates that a mapping does not contain duplicate keys in operational YAML inputs; duplicates are DIAG by default and become FAIL when policy.gates.duplicate_keys=FAIL.
 - EVIDENCE-COVERAGE validates Evidence schema, locator/content_hash correctness, scope match, and coverage.
 - READINESS-CHECK is the authoritative enforcement for Promotion Readiness (Decisions + Evidence + Intent YAML), including scope match, duplicate Intent YAML detection, and stale Intent mismatches.
 - NO-SSOT-PROMOTION FAILS if Draft/Evidence/Exception appear under sdsl2/ or decisions/, or via symlink; Exception File path != policy/exceptions.yaml is FAIL.
@@ -67,10 +70,12 @@ Non-scope: Tool implementation details.
 ## Addendum Severity
 - policy.yaml MAY define FAIL/DIAG/IGNORE only where explicitly allowed by specs.
 - Default severity for Operational Gate checks is FAIL unless overridden by policy.gates.*.
+- DUPLICATE-KEYS defaults to DIAG unless overridden by policy.gates.duplicate_keys.
 - Manual violations are always FAIL.
 
 ## Policy Keys (Closed Set)
 - policy.gates.draft_schema: FAIL | DIAG | IGNORE
+- policy.gates.duplicate_keys: FAIL | DIAG | IGNORE
 - policy.gates.evidence_coverage: FAIL | DIAG | IGNORE
 - policy.gates.no_ssot_promotion: FAIL | DIAG | IGNORE
 - policy.gates.readiness_check: FAIL | DIAG | IGNORE

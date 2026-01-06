@@ -31,12 +31,12 @@ def main() -> int:
             py,
             "scripts/check_error_catalog.py",
             "--errors",
-            "coder_planning/errors_v0_1.md",
+            "coder_planning/archives/errors_v0_1.md",
             "--diagnostics-glob",
             "tests/goldens/**/diagnostics.json",
         ],
-        [py, "scripts/gate_a_check.py", "--input", "OUTPUT", "--input", "tests/goldens"],
         [py, "scripts/determinism_check.py", "--manifest", args.manifest],
+        [py, "scripts/gate_a_check.py", "--input", "OUTPUT", "--input", "tests/goldens"],
         [py, "scripts/gate_b_check.py", "--input", "OUTPUT", "--input", "tests/goldens"],
     ]
 

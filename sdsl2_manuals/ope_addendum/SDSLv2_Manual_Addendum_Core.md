@@ -99,6 +99,7 @@ Allowed placements (closed set):
 - Direction is emitted as a canonical quoted string (for example, "req").
 - Edges are sorted by (from_id, to_id, direction, channel, joined_contract_refs)
   where *_id uses canon_id if present else rel_id.
+- joined_contract_refs is the contract_refs list joined by "|" after lexical sort; tokens MUST NOT contain "|".
 - Contracts are sorted lexically by token string.
 
 ### Context Pack Minimal Example (Non-normative)

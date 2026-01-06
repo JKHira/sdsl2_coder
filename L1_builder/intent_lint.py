@@ -108,7 +108,7 @@ def _collect_inputs(
     return files, diags
 
 
-def _lint_file(path: Path) -> list[Diagnostic]:
+def _lint_file(path: Path) -> tuple[dict[str, object] | None, list[Diagnostic]]:
     diags: list[Diagnostic] = []
     try:
         data = load_yaml(path)
@@ -121,7 +121,7 @@ def _lint_file(path: Path) -> list[Diagnostic]:
             str(exc),
             json_pointer(),
         )
-        return diags
+        return None, diags
     if not isinstance(data, dict):
         _diag(
             diags,
@@ -131,10 +131,12 @@ def _lint_file(path: Path) -> list[Diagnostic]:
             type(data).__name__,
             json_pointer(),
         )
-        return diags
-    _, file_diags = normalize_intent(data, fill_missing=False)
+        return None, diags
+    normalized, file_diags = normalize_intent(data, fill_missing=False)
     diags.extend(file_diags)
-    return diags
+    if diags:
+        return None, diags
+    return normalized, diags
 
 
 def main() -> int:
@@ -172,11 +174,57 @@ def main() -> int:
         return 2
 
     all_diags: list[Diagnostic] = []
+    normalized_by_path: dict[Path, dict[str, object]] = {}
     for file_path in files:
-        all_diags.extend(_lint_file(file_path))
+        normalized, file_diags = _lint_file(file_path)
+        all_diags.extend(file_diags)
+        if normalized:
+            normalized_by_path[file_path] = normalized
 
     if all_diags:
         _print_diags(all_diags)
+        return 2
+
+    seen: dict[tuple[str, str, str], Path] = {}
+    root_resolved = project_root.resolve()
+    cross_diags: list[Diagnostic] = []
+    for file_path, data in normalized_by_path.items():
+        scope = data.get("scope", {})
+        scope_kind = scope.get("kind", "")
+        scope_value = scope.get("value", "")
+        intents = data.get("edge_intents_proposed", [])
+        if not isinstance(intents, list):
+            continue
+        for item in intents:
+            if not isinstance(item, dict):
+                continue
+            intent_id = item.get("id")
+            if not isinstance(intent_id, str) or not intent_id:
+                continue
+            key = (str(scope_kind), str(scope_value), intent_id)
+            if key in seen:
+                first = seen[key]
+                try:
+                    rel_first = first.resolve().relative_to(root_resolved).as_posix()
+                except ValueError:
+                    rel_first = str(first)
+                try:
+                    rel_second = file_path.resolve().relative_to(root_resolved).as_posix()
+                except ValueError:
+                    rel_second = str(file_path)
+                _diag(
+                    cross_diags,
+                    "E_INTENT_DUPLICATE_ID_CROSS_FILE",
+                    "Duplicate intent id across files",
+                    "unique per scope",
+                    f"{intent_id} in {rel_first} and {rel_second}",
+                    json_pointer("edge_intents_proposed"),
+                )
+            else:
+                seen[key] = file_path
+
+    if cross_diags:
+        _print_diags(cross_diags)
         return 2
     return 0
 

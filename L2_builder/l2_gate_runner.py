@@ -5,13 +5,17 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import subprocess
 import sys
+from datetime import date
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
+from L2_builder.common import has_symlink_parent
+from sdslv2_builder.op_yaml import load_yaml
 from sdslv2_builder.policy_utils import get_gate_severity, load_policy
 
 
@@ -80,6 +84,65 @@ def _run_drift_gate(cmd: list[str], policy: dict, verbose: bool) -> int:
     return 0
 
 
+DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+EXCEPTION_TARGET_TO_GATE = {
+    "DRAFT-SCHEMA": "draft_schema",
+    "EVIDENCE-COVERAGE": "evidence_coverage",
+    "SCHEMA-MIGRATION": "schema_migration",
+}
+
+
+def _parse_date(value: str) -> date | None:
+    if not DATE_RE.match(value):
+        return None
+    try:
+        y, m, d = value.split("-")
+        return date(int(y), int(m), int(d))
+    except ValueError:
+        return None
+
+
+def _collect_exception_overrides(project_root: Path, today: date) -> set[str]:
+    overrides: set[str] = set()
+    exceptions_path = project_root / "policy" / "exceptions.yaml"
+    if not exceptions_path.exists():
+        return overrides
+    if has_symlink_parent(exceptions_path, project_root) or exceptions_path.is_symlink():
+        return overrides
+    if exceptions_path.is_dir():
+        return overrides
+    try:
+        exceptions_path.resolve().relative_to(project_root.resolve())
+    except ValueError:
+        return overrides
+    try:
+        data = load_yaml(exceptions_path)
+    except Exception:
+        return overrides
+    if not isinstance(data, dict):
+        return overrides
+    exceptions = data.get("exceptions")
+    if not isinstance(exceptions, list):
+        return overrides
+    for item in exceptions:
+        if not isinstance(item, dict):
+            continue
+        expires = item.get("expires")
+        if not isinstance(expires, str):
+            continue
+        expires_date = _parse_date(expires)
+        if not expires_date or expires_date < today:
+            continue
+        targets = item.get("targets")
+        if not isinstance(targets, list):
+            continue
+        for target in targets:
+            gate = EXCEPTION_TARGET_TO_GATE.get(target)
+            if gate:
+                overrides.add(gate)
+    return overrides
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument(
@@ -129,6 +192,11 @@ def main() -> int:
         print(json.dumps(payload, ensure_ascii=False, indent=2), file=sys.stderr)
     policy = policy_result.policy
 
+    today = _parse_date(args.today)
+    exception_overrides: set[str] = set()
+    if today is not None:
+        exception_overrides = _collect_exception_overrides(project_root, today)
+
     l1_cmd = [
         py,
         str(ROOT / "L1_builder" / "operational_gate.py"),
@@ -145,7 +213,20 @@ def main() -> int:
         l1_cmd.extend(["--policy-path", args.policy_path])
     if args.publish:
         l1_cmd.append("--fail-on-unresolved")
+    for gate in sorted(exception_overrides):
+        l1_cmd.extend(["--exceptions-target", gate])
     if _run_gate(l1_cmd, None, policy, args.verbose) != 0:
+        return 2
+
+    contract_cmd = [
+        py,
+        str(ROOT / "L2_builder" / "contract_sdsl_lint.py"),
+        "--input",
+        str(project_root / "sdsl2" / "contract"),
+        "--project-root",
+        str(project_root),
+    ]
+    if _run_gate(contract_cmd, "contract_sdsl", policy, args.verbose) != 0:
         return 2
 
     drift_cmd = [

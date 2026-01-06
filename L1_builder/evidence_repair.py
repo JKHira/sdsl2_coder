@@ -292,6 +292,12 @@ def main() -> int:
         except ValueError:
             print("E_EVIDENCE_REPAIR_OUTPUT_OUTSIDE_OUTPUT", file=sys.stderr)
             return 2
+        if out_path.exists() and out_path.is_symlink():
+            print("E_EVIDENCE_REPAIR_OUTPUT_SYMLINK", file=sys.stderr)
+            return 2
+        if _has_symlink_parent(out_path, project_root):
+            print("E_EVIDENCE_REPAIR_OUTPUT_SYMLINK", file=sys.stderr)
+            return 2
         out_path.write_text(diff_text, encoding="utf-8")
     else:
         print(diff_text, end="")

@@ -13,6 +13,7 @@ sys.path.insert(0, str(ROOT))
 
 from L2_builder.common import ROOT as REPO_ROOT, ensure_inside, has_symlink_parent, resolve_path
 from sdslv2_builder.context_pack import extract_context_pack
+from sdslv2_builder.io_atomic import atomic_write_text
 from sdslv2_builder.input_hash import compute_input_hash
 
 DEFAULT_OUT = "OUTPUT/context_pack.yaml"
@@ -24,15 +25,21 @@ def _quote(value: str) -> str:
     return f'"{escaped}"'
 
 
-def _git_rev(project_root: Path) -> str:
-    result = subprocess.run(
-        ["git", "-C", str(project_root), "rev-parse", "HEAD"],
-        capture_output=True,
-        text=True,
-    )
+def _git_rev(project_root: Path) -> tuple[str, str | None]:
+    try:
+        result = subprocess.run(
+            ["git", "-C", str(project_root), "rev-parse", "HEAD"],
+            capture_output=True,
+            text=True,
+        )
+    except FileNotFoundError:
+        return "UNKNOWN", "E_CONTEXT_PACK_SOURCE_REV_GIT_MISSING"
     if result.returncode != 0:
-        raise ValueError("E_CONTEXT_PACK_SOURCE_REV_MISSING")
-    return result.stdout.strip()
+        return "UNKNOWN", "E_CONTEXT_PACK_SOURCE_REV_MISSING"
+    rev = result.stdout.strip()
+    if not rev:
+        return "UNKNOWN", "E_CONTEXT_PACK_SOURCE_REV_EMPTY"
+    return rev, None
 
 
 def main() -> int:
@@ -42,6 +49,11 @@ def main() -> int:
     ap.add_argument("--hops", type=int, default=1, help="Neighbor hops (>=0).")
     ap.add_argument("--out", default=DEFAULT_OUT, help="Output path (OUTPUT/context_pack.yaml) or '-' for stdout.")
     ap.add_argument("--project-root", default=str(REPO_ROOT), help="Project root.")
+    ap.add_argument(
+        "--allow-unknown-source-rev",
+        action="store_true",
+        help="Allow UNKNOWN source_rev when git rev is unavailable.",
+    )
     args = ap.parse_args()
 
     project_root = Path(args.project_root).resolve()
@@ -51,6 +63,9 @@ def main() -> int:
 
     input_path = resolve_path(project_root, args.input)
     ssot_root = (project_root / "sdsl2" / "topology").resolve()
+    if has_symlink_parent(ssot_root, project_root) or ssot_root.is_symlink():
+        print("E_CONTEXT_PACK_INPUT_SYMLINK", file=sys.stderr)
+        return 2
     try:
         ensure_inside(ssot_root, input_path, "E_CONTEXT_PACK_INPUT_NOT_SSOT")
     except ValueError:
@@ -75,11 +90,11 @@ def main() -> int:
         print(str(exc), file=sys.stderr)
         return 2
 
-    try:
-        source_rev = _git_rev(project_root)
-    except ValueError as exc:
-        print(str(exc), file=sys.stderr)
-        return 2
+    source_rev, warn = _git_rev(project_root)
+    if warn:
+        print(warn, file=sys.stderr)
+        if not args.allow_unknown_source_rev:
+            return 2
     try:
         result = compute_input_hash(
             project_root,
@@ -133,7 +148,14 @@ def main() -> int:
         return 2
 
     out_path.parent.mkdir(parents=True, exist_ok=True)
-    out_path.write_text(output, encoding="utf-8")
+    try:
+        atomic_write_text(out_path, output, symlink_code="E_CONTEXT_PACK_OUTPUT_SYMLINK")
+    except ValueError as exc:
+        print(str(exc), file=sys.stderr)
+        return 2
+    except OSError as exc:
+        print(f"E_CONTEXT_PACK_WRITE_FAILED:{exc}", file=sys.stderr)
+        return 2
     return 0
 
 

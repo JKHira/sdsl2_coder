@@ -12,7 +12,7 @@ Non-scope: Auto-apply, migrations, or any SSOT edits (diff-only only where speci
 - `conformance_check.py`: Validates skeleton matches current contract SSOT.
 - `freshness_check.py`: Verifies bundle_doc provenance input_hash/source_rev.
 - `token_registry_gen.py`: Generate OUTPUT/ssot/ssot_registry.json and contract_registry.json.
-- `l2_gate_runner.py`: Run L1 operational gate, drift_check, exception_lint, and (publish) conformance/freshness.
+- `l2_gate_runner.py`: Run L1 operational gate, contract_sdsl_lint, drift_check, exception_lint, and (publish) conformance/freshness.
 
 ## Paths and Authority
 - SSOT is read-only under sdsl2/.

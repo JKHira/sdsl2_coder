@@ -65,7 +65,7 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument(
         "--errors",
-        default="coder_planning/errors_v0_1.md",
+        default="coder_planning/archives/errors_v0_1.md",
         help="Path to error catalog (markdown).",
     )
     ap.add_argument(

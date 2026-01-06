@@ -73,6 +73,15 @@ def _ensure_dict(value: object, path: str, diags: list[Diagnostic]) -> dict[str,
     return {}
 
 
+def _has_symlink_parent(path: Path, stop: Path) -> bool:
+    for parent in [path, *path.parents]:
+        if parent == stop:
+            break
+        if parent.is_symlink():
+            return True
+    return False
+
+
 def _validate_scope(
     scope: dict,
     project_root: Path,
@@ -130,6 +139,15 @@ def _validate_scope(
                 str(full),
                 json_pointer("scope", "value"),
             )
+        if full.is_symlink() or _has_symlink_parent(full, project_root):
+            _diag(
+                diags,
+                "E_CONTRACT_DECISIONS_SCOPE_INVALID",
+                "scope.value must not be symlink",
+                "non-symlink",
+                str(full),
+                json_pointer("scope", "value"),
+            )
         if not value.startswith("sdsl2/contract/") or not value.endswith(".sdsl2"):
             _diag(
                 diags,
@@ -137,6 +155,24 @@ def _validate_scope(
                 "scope.value must be sdsl2/contract/*.sdsl2",
                 "sdsl2/contract/*.sdsl2",
                 value,
+                json_pointer("scope", "value"),
+            )
+        if not full.exists():
+            _diag(
+                diags,
+                "E_CONTRACT_DECISIONS_SCOPE_INVALID",
+                "scope.value must exist",
+                "existing file",
+                str(full),
+                json_pointer("scope", "value"),
+            )
+        elif not full.is_file():
+            _diag(
+                diags,
+                "E_CONTRACT_DECISIONS_SCOPE_INVALID",
+                "scope.value must be file",
+                "file",
+                str(full),
                 json_pointer("scope", "value"),
             )
     if kind == "id_prefix" and value and not RELID_RE.match(value):
@@ -222,7 +258,7 @@ def parse_contract_decisions_file(
                 key,
                 json_pointer("provenance", key),
             )
-    for key in allowed_prov:
+    for key in sorted(allowed_prov):
         value = provenance.get(key)
         if not isinstance(value, str) or not value.strip():
             _diag(

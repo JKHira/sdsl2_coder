@@ -1,87 +1,84 @@
-# L0 実装: 追加の穴（L1/L2 への移行で揉める可能性）
+[FINDING 1] V
+File: l2_gate_runner.py
+Location: main（L1 operational gate 実行〜exception_lint 前）
+Category: A
+Trigger: exceptions.yaml に有効な例外（EVIDENCE-COVERAGE など）を設定し、証拠未整備のまま l2_gate_runner.py --today 2024-01-01 を実行。
+Impact: 例外があっても L1 operational gate の FAIL で即終了し、L2 の PASS_WITH_EXCEPTIONS に到達できずフローが詰む。
+Proof:
 
-## A. Context Pack 仕様未対応（最優先）
-### 問題
-- `L0_builder/context_pack_gen.py` の出力が Context Pack/Bundle Doc 規定とズレる（YAML構造・Open TODO・Authz/Invariants、source_rev/input_hash、保存先の閉集合など）。
-- L2 の determinism/freshness で FAIL しやすい。
-- 仕様上の「persisted outputs」の曖昧さと、`OUTPUT/intent_preview.sdsl2` の扱いが衝突しやすい（閉集合に含まれない）。
+l2_gate_runner.py は operational_gate.py が非0の時点で return 2 し、exception_lint.py に到達しない。
+exception_lint.py は例外ファイルの検証のみで、ゲート結果を緩和する処理が存在しない。
+Minimal fix:
+l2_gate_runner.py で exceptions を読み、対象ターゲットのゲート失敗を PASS_WITH_EXCEPTIONS に反映する処理を追加する。
+もしくは operational_gate.py に --exceptions-path を追加し、例外をゲート判定に組み込む。
 
-### 解決策（最も整合的）
-- **L2 の Context Pack 仕様に準拠する出力を L0 でも出す**（同一ロジック/同一フォーマット）。
-- 出力先は `OUTPUT/context_pack.yaml` 固定（spec の closed set に合わせる）。
-- `source_rev`/`input_hash` を含める（SSOTのみの input_hash）。
-- 派生出力を **persisted / cache** で明確に分離し、閉集合や freshness 対象を固定する。
+[FINDING 2] V
+File: Operatoon_flow.md
+Location: 2.1 C（policy.yaml 記載箇所）
+Category: B
+Trigger: Operatoon_flow に従って policy.yaml を作成し、--policy-path を付けずに L1/L2 ゲートを実行。
+Impact: policy の正準パス解釈が分岐し、CI は既定 FAIL を適用してゲートが落ちる一方、人間は policy が効いている前提で進めるため判定が一致しない。
+Proof:
+Operatoon_flow.md はゲート運用設定の場所を policy.yaml と明記している。
+addendum_policy.py の _find_default_policy は policy.yaml のみを探索し、policy.yaml は既定では読み込まれない。
+Minimal fix:
+policy の権威パスを 1 本化し、Operatoon_flow.md と既定探索先を一致させる。
+もし policy.yaml を採用するなら、addendum_policy.py の探索対象に追加する。
 
-### 具体対応案
-- `sdslv2_builder.context_pack.extract_context_pack()` を “L2仕様準拠の YAML” へ拡張し、L0/L2 の両方が同じ生成器を使う。
-- 既存のテキスト出力は廃止、もしくは `--out -` のみ許可に限定。
-- `intent_preview` は cache 扱いと明記するか、persisted に含めるなら閉集合へ追加する（必要なら Conflicts.md に記録）。
+[FINDING 3] V
+File: L1_builder/promote.py
+Location: _find_target_file_by_scope（component 解決）
+Category: B
+Trigger: decisions/edges.yaml で scope.kind:"component" を使用し、同一 rel_id の @Node が複数の topology ファイルに存在する状態で promote.py または drift_check.py を実行。
+Impact: E_PROMOTE_SCOPE_AMBIGUOUS/E_DRIFT_SCOPE_AMBIGUOUS で停止し、spec に明示された解決規則がないため L1 が継続不能になる。
+Proof:
+- SDSL2_Decisions_Spec.md は scope.kind:"component" を許可しているが、rel_id のグローバル一意性や同名が複数ファイルにある場合の解決規則を定義していない。
+- L1_builder/promote.py は component 値に一致する @Node を含むファイルが 1 件でない場合に E_PROMOTE_SCOPE_AMBIGUOUS を返し、L1_builder/drift_check.py も同様に E_DRIFT_SCOPE_AMBIGUOUS を返す。
+Minimal fix:
+- component スコープの解決規則（グローバル一意性の必須化、または id_prefix/file の追加指定）を spec に明記し、decisions_lint/readiness_check で検証する。
+- もしくは component スコープを仕様から削除し、file/id_prefix のみに限定する。
 
----
+[FINDING 4] V
+File: scripts/determinism_check.py
+Location: main（expect 処理の直下）
+Category: A
+Trigger: `python scripts/determinism_check.py --manifest tests/determinism_manifest.json` を実行。
+Impact: IndentationError で即時停止し、決定性ゲートが実行不能になる。
+Proof:
+- `expected_code = int(...)` の直後で `diag_golden = ...` が不正に深いインデントになっており、Python が構文解析で失敗する。
+- `scripts/oi_run_v0_1.py` は determinism_check を必須ステップとして呼ぶため、パイプライン全体が詰む。
+Minimal fix:
+- `diag_golden` の代入ブロックを `expected_code` と同じインデントに修正する。
 
-## B. Intent YAML 生成の扱い（draft_builder の誤用）
-### 問題
-- `draft_builder.py` を Intent YAML に使うと `contract_candidates` を含みうるため Intent spec 違反になりやすい。
-- L1 readiness/intent_lint で詰まりやすい。
-- `schema_version` の既定値が古いと MAJOR 不一致で SCHEMA-MIGRATION に引っかかりやすい。
+[FINDING 5] V
+File: scripts/oi_run_v0_1.py
+Location: main（check_error_catalog 呼び出し）
+Category: A
+Trigger: `python scripts/oi_run_v0_1.py` をデフォルト引数で実行。
+Impact: ERROR_CATALOG_NOT_FOUND で即時停止し、フローが開始時点で詰む。
+Proof:
+- `scripts/oi_run_v0_1.py` は `coder_planning/errors_v0_1.md` を渡して `scripts/check_error_catalog.py` を実行する。
+- リポジトリ内に `coder_planning/errors_v0_1.md` は存在せず、`coder_planning/archives/errors_v0_1.md` のみが存在するため必ず失敗する。
+Minimal fix:
+- `scripts/oi_run_v0_1.py` と `scripts/check_error_catalog.py` の既定パスを `coder_planning/archives/errors_v0_1.md` に統一する。
 
-### 解決策（最も整合的）
-- **Intent YAML 専用のビルダーを分離**し、出力スキーマを Intent spec に固定する。
-- `draft_builder.py` は drafts/*.yaml（一般 Draft）のみを対象に明確化。
-- `schema_version` は運用の単一ソースに固定し、デフォルトを明示管理する。
 
-### 具体対応案
-- `intent_builder.py` を追加し、`edge_intents_proposed` 必須・許容キーを閉集合化。
-- README/tools_doc に「Intent は intent_builder を使う」を最小記述で追記。
-- `DRAFT_SCHEMA_VERSION` 定数を用意し、draft/intent 両ビルダーで共有（必要なら policy/spec lock に寄せる）。
 
----
+FINDING 4（determinism_check の構文エラーでパイプライン自体が即死）
+FINDING 5（oi_run_v0_1 の既定エラーカタログパス不一致で開始不能）
+FINDING 1（L2 例外運用がフローで詰む設計）
+FINDING 2（policy パスの不一致による判定分岐）
+FINDING 3（component スコープの曖昧性）
 
-## C. Context Pack 入力の SSOT/安全性不足
-### 問題
-- `context_pack_gen.py` が `sdsl2/topology` 以外や symlink を拒否しない。
-- 非SSOT混入のリスクが残る。
-
-### 解決策（最も整合的）
-- **SSOT root 制約 + symlink 禁止**を追加（draft_lint/edgeintent_diff と同等の境界）。
-- `--input` は `sdsl2/topology/**/*.sdsl2` に限定。
-
----
-
-## D. draft_lint の入力境界
-### 問題
-- `draft_lint.py` は `drafts/` 配下制約が無く、誤入力でも PASS と誤解される。
-
-### 解決策（最も整合的）
-- **Draft Root を `drafts/` に固定**し、外部入力・symlink を FAIL。
-- `draft_builder.py` と同じ境界条件に揃える。
-
----
-
-## E. source_rev の基準不一致
-### 問題
-- `draft_builder.py` が `project_root` ではなくリポジトリ ROOT で git rev を取るため、worktree 分離時に `source_rev` がズレ得る。
-
-### 解決策（最も整合的）
-- `source_rev` は `project_root` を基準に取得する（`git -C <project_root>`）。
-- 取得失敗時のみ `UNKNOWN` に落とす。
-
----
-
-## F. L0→L1 の「次に何を埋めるか」導線が弱い
-### 問題
-- 曖昧性の分類→ルーティング→不足項目の機械列挙が連結されておらず、L1 の readiness で詰まりやすい。
-
-### 解決策（最も整合的）
-- Bundle Doc Supplementary（decisions_needed / diagnostics_summary）を最小実装し、次アクションを機械列挙する。
-- Intent/Decision/Evidence のテンプレ生成器を L0/L1 の定番ツールに組み込む。
-
----
-
-## 実施順（安全性優先）
-1) A: Context Pack 仕様整合 + 派生出力の persisted/cache ルール固定
-2) B: Intent ビルダー分離 + schema_version 方針の単一化
-3) C: Context Pack 入力境界の強化（権威混入を防止）
-4) E: source_rev の基準を project_root に統一
-5) D: draft_lint の境界強化（運用誤解の防止）
-6) F: L0→L1 の不足項目出力とテンプレ導線
+[PROPOSAL 1]
+Topic: YAML 重複キーの安全な収束
+Goal: 安全性と運用継続を両立し、判定の不一致を根本排除する。
+Approach:
+- 段階導入: まず「重複キー検出専用の lint」を追加し、CI では DIAG として運用（影響把握）。
+- 明示ガード: policy.gates に `duplicate_keys` を追加して段階的に FAIL へ昇格（仕様更新とセット）。
+- 実装分離: op_yaml は `strict_keys` オプション対応に留め、既存ツールは opt-in で使用（既存挙動を壊さない）。
+- 収束計画: 一定期間 DIAG で検出→修正完了後に default strict へ移行（spec バージョンを上げて合意形成）。
+Notes:
+- 重複キーはツール間の判定不一致を生むため、最終状態は「禁止」が整合的。
+- 影響範囲が広いので “検出→移行→強制” の三段階に分けるのが最も低リスク。
+- 診断は「ファイル/行/重複キー/JSON Pointer」と「どちらを残すか」を明示し、修正手順が一目で分かる形式にする。

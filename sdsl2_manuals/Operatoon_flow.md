@@ -41,7 +41,7 @@ C) Draft / Intent / Evidence / Exceptions（非SSOT、意思決定の足場）
 	•	drafts/ledger/*.yaml：ノード骨格などの作業用 ledger（非SSOT）
 	•	drafts/intent/*.yaml：Edge の“意図”を表す Intent YAML（L0/L1 の下書き）
 	•	decisions/evidence.yaml：決定の証拠（Evidence Map）
-	•	policy/policy.yaml：ゲート運用の設定（FAIL/DIAG/IGNORE 等）
+	•	.sdsl/policy.yaml：ゲート運用の設定（FAIL/DIAG/IGNORE 等）
 	•	policy/exceptions.yaml：L2 での例外（期限付き・上限付き）
 
 これらは SSOT に昇格してはいけない領域で、CI の「品質ゲート」には使われますが、Graph Facts そのものにはならない、という扱いです。

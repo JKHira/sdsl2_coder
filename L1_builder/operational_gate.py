@@ -15,7 +15,14 @@ sys.path.insert(0, str(ROOT))
 from sdslv2_builder.policy_utils import get_gate_severity, load_policy
 
 
-def _run_gate(cmd: list[str], gate_key: str | None, policy: dict, verbose: bool) -> int:
+def _run_gate(
+    cmd: list[str],
+    gate_key: str | None,
+    policy: dict,
+    verbose: bool,
+    exception_overrides: set[str],
+    default_severity: str | None = None,
+) -> int:
     if verbose:
         print("+", " ".join(cmd))
     proc = subprocess.run(cmd, capture_output=True, text=True, cwd=ROOT)
@@ -25,7 +32,12 @@ def _run_gate(cmd: list[str], gate_key: str | None, policy: dict, verbose: bool)
         print(proc.stderr, end="", file=sys.stderr)
     if proc.returncode == 0:
         return 0
-    severity = "FAIL" if gate_key is None else get_gate_severity(policy, gate_key)
+    if gate_key is None:
+        severity = "FAIL"
+    else:
+        severity = get_gate_severity(policy, gate_key, default=default_severity or "FAIL")
+    if gate_key and gate_key in exception_overrides and severity == "FAIL":
+        severity = "DIAG"
     if severity in {"DIAG", "IGNORE"}:
         print(f"[{severity}] {gate_key}", file=sys.stderr)
         return 0
@@ -97,6 +109,12 @@ def main() -> int:
         action="store_true",
         help="Treat UNRESOLVED token registry targets as failure",
     )
+    ap.add_argument(
+        "--exceptions-target",
+        action="append",
+        default=[],
+        help="Gate key to downgrade to DIAG when exceptions are active",
+    )
     ap.add_argument("--verbose", action="store_true", help="Print commands")
     args = ap.parse_args()
 
@@ -109,6 +127,28 @@ def main() -> int:
         print(json.dumps(payload, ensure_ascii=False, indent=2), file=sys.stderr)
     policy = policy_result.policy
 
+    exception_overrides = set(args.exceptions_target)
+
+    dup_cmd = [
+        py,
+        str(ROOT / "L1_builder" / "duplicate_key_lint.py"),
+        "--input",
+        str(project_root / "drafts"),
+        "--input",
+        str(project_root / "decisions"),
+        "--input",
+        str(project_root / "policy"),
+        "--input",
+        str(project_root / ".sdsl" / "policy.yaml"),
+        "--input",
+        args.decisions_path,
+        "--input",
+        args.evidence_path,
+        "--project-root",
+        str(project_root),
+    ]
+    if _run_gate(dup_cmd, "duplicate_keys", policy, args.verbose, exception_overrides, default_severity="DIAG") != 0:
+        return 2
     drafts_root = project_root / "drafts"
     for draft_path in _list_draft_files(drafts_root):
         cmd = [
@@ -119,7 +159,7 @@ def main() -> int:
             "--project-root",
             str(project_root),
         ]
-        if _run_gate(cmd, "draft_schema", policy, args.verbose) != 0:
+        if _run_gate(cmd, "draft_schema", policy, args.verbose, exception_overrides) != 0:
             return 2
 
     intent_root = drafts_root / "intent"
@@ -135,7 +175,7 @@ def main() -> int:
         ]
         if args.allow_nonstandard_path:
             cmd.append("--allow-nonstandard-path")
-        if _run_gate(cmd, "draft_schema", policy, args.verbose) != 0:
+        if _run_gate(cmd, "draft_schema", policy, args.verbose, exception_overrides) != 0:
             return 2
 
     schema_cmd = [
@@ -148,7 +188,7 @@ def main() -> int:
         "--project-root",
         str(project_root),
     ]
-    if _run_gate(schema_cmd, "schema_migration", policy, args.verbose) != 0:
+    if _run_gate(schema_cmd, "schema_migration", policy, args.verbose, exception_overrides) != 0:
         return 2
 
     decisions_cmd = [
@@ -161,7 +201,7 @@ def main() -> int:
     ]
     if args.allow_nonstandard_path:
         decisions_cmd.append("--allow-nonstandard-path")
-    if _run_gate(decisions_cmd, None, policy, args.verbose) != 0:
+    if _run_gate(decisions_cmd, None, policy, args.verbose, exception_overrides) != 0:
         return 2
 
     evidence_cmd = [
@@ -176,7 +216,7 @@ def main() -> int:
     ]
     if args.allow_nonstandard_path:
         evidence_cmd.append("--allow-nonstandard-path")
-    if _run_gate(evidence_cmd, "evidence_coverage", policy, args.verbose) != 0:
+    if _run_gate(evidence_cmd, "evidence_coverage", policy, args.verbose, exception_overrides) != 0:
         return 2
 
     repair_cmd = [
@@ -193,7 +233,7 @@ def main() -> int:
         repair_cmd.append("--allow-nonstandard-path")
     if args.evidence_repair_out:
         repair_cmd.extend(["--out", args.evidence_repair_out])
-    if _run_gate(repair_cmd, "evidence_repair", policy, args.verbose) != 0:
+    if _run_gate(repair_cmd, "evidence_repair", policy, args.verbose, exception_overrides) != 0:
         return 2
 
     readiness_cmd = [
@@ -208,7 +248,7 @@ def main() -> int:
     ]
     if args.allow_nonstandard_path:
         readiness_cmd.append("--allow-nonstandard-path")
-    if _run_gate(readiness_cmd, "readiness_check", policy, args.verbose) != 0:
+    if _run_gate(readiness_cmd, "readiness_check", policy, args.verbose, exception_overrides) != 0:
         return 2
 
     no_ssot_cmd = [
@@ -217,7 +257,7 @@ def main() -> int:
         "--project-root",
         str(project_root),
     ]
-    if _run_gate(no_ssot_cmd, "no_ssot_promotion", policy, args.verbose) != 0:
+    if _run_gate(no_ssot_cmd, "no_ssot_promotion", policy, args.verbose, exception_overrides) != 0:
         return 2
 
     token_cmd = [
@@ -233,7 +273,7 @@ def main() -> int:
     if args.fail_on_unresolved:
         token_cmd.append("--fail-on-unresolved")
     token_gate_key = None if args.fail_on_unresolved else "token_registry"
-    if _run_gate(token_cmd, token_gate_key, policy, args.verbose) != 0:
+    if _run_gate(token_cmd, token_gate_key, policy, args.verbose, exception_overrides) != 0:
         return 2
 
     if args.determinism_manifest:
@@ -243,7 +283,7 @@ def main() -> int:
             "--manifest",
             args.determinism_manifest,
         ]
-        if _run_gate(determinism_cmd, "determinism", policy, args.verbose) != 0:
+        if _run_gate(determinism_cmd, "determinism", policy, args.verbose, exception_overrides) != 0:
             return 2
 
     return 0

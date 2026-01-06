@@ -15,6 +15,7 @@ sys.path.insert(0, str(ROOT))
 from sdslv2_builder.draft_schema import normalize_draft, REQUIRED_TOP_KEYS
 from sdslv2_builder.errors import Diagnostic
 from sdslv2_builder.input_hash import compute_input_hash
+from sdslv2_builder.io_atomic import atomic_write_text
 from sdslv2_builder.op_yaml import load_yaml, dump_yaml
 from sdslv2_builder.schema_versions import DRAFT_SCHEMA_VERSION
 
@@ -230,8 +231,21 @@ def main() -> int:
         return 2
     if not _ensure_file_path(out_path, "DRAFT_OUTPUT"):
         return 2
+    if out_path.is_symlink():
+        print("E_DRAFT_OUTPUT_SYMLINK", file=sys.stderr)
+        return 2
+    if _has_symlink_parent(out_path, drafts_root):
+        print("E_DRAFT_OUTPUT_SYMLINK_PARENT", file=sys.stderr)
+        return 2
     out_path.parent.mkdir(parents=True, exist_ok=True)
-    out_path.write_text(dump_yaml(normalized), encoding="utf-8")
+    try:
+        atomic_write_text(out_path, dump_yaml(normalized), symlink_code="E_DRAFT_OUTPUT_SYMLINK")
+    except ValueError as exc:
+        print(str(exc), file=sys.stderr)
+        return 2
+    except OSError as exc:
+        print(f"E_DRAFT_WRITE_FAILED:{exc}", file=sys.stderr)
+        return 2
     return 0
 
 

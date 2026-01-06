@@ -231,15 +231,6 @@ def _edge_run_bounds(lines: list[str], edges: list[EdgeBlock]) -> tuple[int, int
     starts = [e.start for e in edges]
     ends = [e.end for e in edges]
     run_start, run_end = min(starts), max(ends)
-    edge_lines = set()
-    for edge in edges:
-        edge_lines.update(range(edge.start, edge.end + 1))
-    for idx in range(run_start, run_end + 1):
-        if idx in edge_lines:
-            continue
-        if lines[idx].strip() == "" or lines[idx].lstrip().startswith("//"):
-            continue
-        raise ValueError("E_PROMOTE_EDGE_RUN_NON_CONTIGUOUS")
     return run_start, run_end
 
 
@@ -517,6 +508,12 @@ def main() -> int:
             return 2
         if out_path.exists() and out_path.is_dir():
             print("E_PROMOTE_OUTPUT_IS_DIR", file=sys.stderr)
+            return 2
+        if out_path.exists() and out_path.is_symlink():
+            print("E_PROMOTE_OUTPUT_SYMLINK", file=sys.stderr)
+            return 2
+        if _has_symlink_parent(out_path, project_root):
+            print("E_PROMOTE_OUTPUT_SYMLINK", file=sys.stderr)
             return 2
         out_path.parent.mkdir(parents=True, exist_ok=True)
         out_path.write_text(output + "\n", encoding="utf-8")
