@@ -140,6 +140,11 @@ def main() -> int:
         help="Allow UNKNOWN source_rev when git rev is unavailable.",
     )
     ap.add_argument("--no-decisions", action="store_true", help="Exclude decisions/edges.yaml from input_hash.")
+    ap.add_argument(
+        "--include-decisions",
+        action="store_true",
+        help="Include decisions/edges.yaml in input_hash (default: excluded).",
+    )
     ap.add_argument("--include-policy", action="store_true", help="Include policy files in input_hash.")
     args = ap.parse_args()
 
@@ -245,10 +250,14 @@ def main() -> int:
             if not args.allow_unknown_source_rev:
                 return 2
 
+    if args.no_decisions and args.include_decisions:
+        print("E_BUNDLE_DOC_DECISIONS_FLAG_CONFLICT", file=sys.stderr)
+        return 2
+    include_decisions = bool(args.include_decisions)
     try:
         result = compute_input_hash(
             project_root,
-            include_decisions=not args.no_decisions,
+            include_decisions=include_decisions,
             include_policy=args.include_policy,
             extra_inputs=extra_inputs,
         )

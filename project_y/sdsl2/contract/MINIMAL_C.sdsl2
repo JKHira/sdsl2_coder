@@ -1,7 +1,0 @@
-@File { profile:"contract", id_prefix:"MINI_C_EXAMPLE" }
-@DocMeta { id:"MINI_CONTRACT", title:"Minimal Contract", desc:"Minimal event contract" }
-@Structure { id:"MINIMAL_EVENT" }
-struct MinimalEvent {
-  id: s,
-}
-@Rule { id:"MINIMAL_EVENT_RULE", bind:@Structure.MINIMAL_EVENT }

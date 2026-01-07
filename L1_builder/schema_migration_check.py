@@ -55,7 +55,7 @@ def _collect_yaml_files(
     project_root: Path,
     diags: list[Diagnostic],
     group: str,
-    exclude_dir: Path | None = None,
+    exclude_dirs: list[Path] | None = None,
 ) -> list[Path]:
     files: list[Path] = []
     if not root.exists():
@@ -71,7 +71,7 @@ def _collect_yaml_files(
         )
         return files
     for path in sorted(root.rglob("*.yaml")):
-        if exclude_dir and exclude_dir in path.parents:
+        if exclude_dirs and any(exclude_dir in path.parents for exclude_dir in exclude_dirs):
             continue
         if path.is_symlink() or _has_symlink_parent(path, project_root):
             _diag(
@@ -210,7 +210,14 @@ def main() -> int:
 
     drafts_root = project_root / "drafts"
     intent_root = drafts_root / "intent"
-    draft_files = _collect_yaml_files(drafts_root, project_root, diags, "drafts", exclude_dir=intent_root)
+    ledger_root = drafts_root / "ledger"
+    draft_files = _collect_yaml_files(
+        drafts_root,
+        project_root,
+        diags,
+        "drafts",
+        exclude_dirs=[intent_root, ledger_root],
+    )
     intent_files = _collect_yaml_files(intent_root, project_root, diags, "intent")
 
     decision_files: list[Path] = []

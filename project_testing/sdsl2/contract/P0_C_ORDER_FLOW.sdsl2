@@ -1,0 +1,5 @@
+@File { profile:"contract", id_prefix:"P0_C_ORDER_FLOW" }
+@Structure { id:"INVENTORY_RESERVE" }
+struct INVENTORY_RESERVE {}
+@Structure { id:"PAYMENT_AND_FULFILLMENT" }
+struct PAYMENT_AND_FULFILLMENT {}

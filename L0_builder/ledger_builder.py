@@ -9,6 +9,7 @@ from pathlib import Path
 import re
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT))
 
 from sdslv2_builder.io_atomic import atomic_write_text
 
@@ -56,6 +57,7 @@ def _yaml_quote(value: str) -> str:
 
 def _dump_ledger(
     id_prefix: str,
+    stage: str | None,
     nodes: list[str],
     kind: str,
     evidence_note: str | None,
@@ -66,6 +68,8 @@ def _dump_ledger(
     lines.append("file_header:")
     lines.append("  profile: topology")
     lines.append(f"  id_prefix: {_yaml_quote(id_prefix)}")
+    if stage:
+        lines.append(f"  stage: {_yaml_quote(stage)}")
     lines.append("nodes:")
     for node_id in nodes:
         lines.append(f"  - id: {_yaml_quote(node_id)}")
@@ -130,6 +134,7 @@ def main() -> int:
     ap.add_argument("--line-start", type=int, default=None, help="Start line (1-based, inclusive)")
     ap.add_argument("--line-end", type=int, default=None, help="End line (1-based, inclusive)")
     ap.add_argument("--id-prefix", required=True, help="Topology id_prefix")
+    ap.add_argument("--stage", default="L0", help="Topology stage (L0/L1/L2)")
     ap.add_argument("--kind", default="component", help="Node kind")
     ap.add_argument("--evidence-note", default="", help="Evidence note")
     ap.add_argument("--out", required=True, help="Output ledger path")
@@ -194,11 +199,14 @@ def main() -> int:
     if not args.id_prefix.strip():
         print("E_LEDGER_BUILDER_ID_PREFIX_EMPTY", file=sys.stderr)
         return 2
+    if args.stage and args.stage not in {"L0", "L1", "L2"}:
+        print("E_LEDGER_BUILDER_STAGE_INVALID", file=sys.stderr)
+        return 2
     if not args.kind.strip():
         print("E_LEDGER_BUILDER_KIND_EMPTY", file=sys.stderr)
         return 2
 
-    content = _dump_ledger(args.id_prefix, nodes, args.kind, evidence)
+    content = _dump_ledger(args.id_prefix, args.stage, nodes, args.kind, evidence)
     out_path = _resolve_path(project_root, args.out)
     if not _ensure_allowed(out_path, project_root):
         return 2

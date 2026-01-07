@@ -52,6 +52,19 @@ def _has_symlink_parent(path: Path, stop: Path) -> bool:
     return False
 
 
+def _is_explicit_empty_registry(data: object) -> bool:
+    if isinstance(data, dict):
+        entries = data.get("entries")
+        if isinstance(entries, list) and len(entries) == 0:
+            return True
+        tokens = data.get("tokens")
+        if isinstance(tokens, list) and len(tokens) == 0:
+            return True
+    if isinstance(data, list) and len(data) == 0:
+        return True
+    return False
+
+
 def _parse_annotations(lines: list[str]) -> list[tuple[str, dict[str, str], int, int]]:
     annotations: list[tuple[str, dict[str, str], int, int]] = []
     for idx, line in enumerate(lines):
@@ -484,8 +497,9 @@ def _load_registry_tokens(
         _diag(diags, "E_TOKEN_REGISTRY_SYMLINK", "registry file is symlink", "non-symlink", str(path), json_pointer())
         return set(), []
     data = load_yaml(path)
+    explicit_empty = _is_explicit_empty_registry(data)
     tokens, entries = _collect_registry_entries(data, prefix, diags)
-    if not tokens:
+    if not tokens and not explicit_empty:
         _diag(
             diags,
             invalid_code,

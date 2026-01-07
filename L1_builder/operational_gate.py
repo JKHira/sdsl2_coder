@@ -49,8 +49,11 @@ def _list_draft_files(drafts_root: Path) -> list[Path]:
     if not drafts_root.exists():
         return files
     intent_root = drafts_root / "intent"
+    ledger_root = drafts_root / "ledger"
     for path in sorted(drafts_root.rglob("*.yaml")):
         if intent_root in path.parents:
+            continue
+        if ledger_root in path.parents:
             continue
         if path.is_file():
             files.append(path)

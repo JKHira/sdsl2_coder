@@ -28,6 +28,12 @@ edges: []
 Optional top-level keys:
 - source: { input_path, evidence_note }
 - output: { topology_v2_path }
+Optional file_header keys:
+- stage: L0 | L1 | L2 (if present, writer emits @File.stage)
+```
+file_header:
+  stage: L0
+```
 
 ## Node entry
 ```

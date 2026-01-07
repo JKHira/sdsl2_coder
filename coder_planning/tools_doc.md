@@ -1543,6 +1543,7 @@ ledger.py
 	•	validateでは以下を強制：
 	•	version: topology-ledger-v0.1
 	•	profile: topology
+	•	file_header.stage を指定する場合は L0|L1|L2（出力の @File.stage に反映）
 	•	nodeの id（RELID）重複禁止、kind 必須、bindは @Kind.RELID 形式のみ
 	•	edgeの from/to が node を参照していること
 	•	direction語彙の閉集合

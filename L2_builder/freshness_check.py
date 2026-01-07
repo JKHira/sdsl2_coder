@@ -88,6 +88,11 @@ def main() -> int:
     ap.add_argument("--input", default=DEFAULT_INPUT, help="Bundle Doc path.")
     ap.add_argument("--project-root", default=str(REPO_ROOT), help="Project root.")
     ap.add_argument("--no-decisions", action="store_true", help="Exclude decisions/edges.yaml from input_hash.")
+    ap.add_argument(
+        "--include-decisions",
+        action="store_true",
+        help="Include decisions/edges.yaml in input_hash (default: excluded).",
+    )
     ap.add_argument("--include-policy", action="store_true", help="Include policy files in input_hash.")
     ap.add_argument("--allow-missing", action="store_true", help="Return OK if bundle doc missing.")
     ap.add_argument("--check-source-rev", action="store_true", help="Check source_rev against git.")
@@ -161,10 +166,14 @@ def main() -> int:
     if not input_hash:
         _diag(diags, "E_FRESHNESS_INPUT_HASH_MISSING", "input_hash missing in provenance.inputs", "input_hash:<sha256>", "missing", json_pointer("provenance", "inputs"))
 
+    if args.no_decisions and args.include_decisions:
+        print("E_FRESHNESS_DECISIONS_FLAG_CONFLICT", file=sys.stderr)
+        return 2
+    include_decisions = bool(args.include_decisions)
     try:
         result = compute_input_hash(
             project_root,
-            include_decisions=not args.no_decisions,
+            include_decisions=include_decisions,
             include_policy=args.include_policy,
             extra_inputs=extra_inputs,
         )

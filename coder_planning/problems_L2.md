@@ -1,39 +1,48 @@
-## P1: L2 context_pack_gen が SSOT ルートのシンボリックリンクを検出できず境界外を読み得る
+[FINDING 1]
+File: project_testing/OUTPUT/ssot/contract_registry.json
+Location: entries[].target
+Category: A (Flow Dead-End for publish)
+Nature of cause: 入力不足（registry の target を実体 JSON に解決する手順が未実施）
+Impact: L2 publish（--publish）で token_registry_check が FAIL になり、L2 の完了条件を満たせない。
+Proof:
+- contract_registry.json の target が `UNRESOLVED#/` のままになっている。
+- l2_gate_runner は --publish 時に --fail-on-unresolved を有効化し、E_TOKEN_REGISTRY_TARGET_UNRESOLVED で失敗する。
+Fix proposal:
+- CONTRACT.* を実体 JSON に解決する registry map を用意する。
+- `L2_builder/token_registry_gen.py` を map 指定（または allow-unresolved なし）で再生成する。
 
-### 重要度： 高
 
-### 問題：
-- `L2_builder/context_pack_gen.py` は `ssot_root = project_root/sdsl2/topology` を `resolve()` した後、`ensure_inside(ssot_root, input_path, ...)` で「SSOT配下」を判定しています。
-- `has_symlink_parent(input_path, project_root)` は `input_path` の実体（resolve後）を基準に走るため、`sdsl2/topology` 自体が symlink で外部に向いているケースを検出できません。
-- 結果として、SSOT 外のファイルを「SSOT入力」として受け入れる可能性があり、権威境界の破壊に繋がります。
 
-### 解決策案：
-- `ssot_root` 自体の symlink/親symlink を明示的に拒否する（`has_symlink_parent(ssot_root, project_root)` と `ssot_root.is_symlink()` を追加）。
-- `ensure_inside` の基準は `project_root` に固定し、`sdsl2/topology` 配下かどうかは `relative_to` で別途判定する。
 
-## P2: Bundle Doc の Supplementary 入力が provenance input_hash に含まれず、freshness がすり抜ける
 
-### 重要度： 中
+L2 publish を通すために、CONTRACT トークンの参照先を明示する最小構成の定義ファイルと registry map を追加し、registry を再生成して publish ゲートを通過させました。仕組みの「明示トークン＋レジストリ結合」というフィロゾフィーに沿った解決です。
 
-### 問題：
-- `L2_builder/bundle_doc_gen.py` は `OUTPUT/decisions_needed.yaml` と `OUTPUT/diagnostics_summary.yaml` が存在する場合、それらを読み込んで Bundle Doc に埋め込みます。
-- しかし `compute_input_hash(...)` に `extra_inputs` として渡しておらず、provenance.inputs には SSOT/decisions/policy しか反映されません。
-- `L2_builder/freshness_check.py` も同じ input_hash を計算するため、Supplementary の元ファイルが更新されても freshness が PASS し得ます（Bundle Doc の内容が古いまま残りやすい）。
+変更点
 
-### 解決策案：
-- Supplementary 元ファイルを `extra_inputs` として `compute_input_hash` に追加し、provenance.inputs にも列挙する。
-- `freshness_check.py` 側でも、同じ Supplementary ファイルを `extra_inputs` に加えて input_hash を一致させる。
-- もし「Supplementary は freshness 対象外」とするなら、仕様で明示し、生成器も埋め込みを避ける/別カテゴリ扱いに統一する。
+contract_definitions.json を追加（CONTRACT の実体定義を最小で用意）
+contract_registry_map.json を追加（token -> JSON pointer の対応）
+contract_registry.json を再生成（UNRESOLVED を解消）
+実行したコマンド（テスト）
 
-## P3: L2 gate で contract_sdsl_lint が実行されず、契約SSOTの不正が通過し得る
+token_registry_gen.py --project-root project_testing
+l2_gate_runner.py --project-root project_testing --today 2026-01-06 --publish
+確認方法
 
-### 重要度： 中
+上記 l2_gate_runner.py --publish を再実行すると、publish が PASS します。
+次のステップ案（必要なら）
 
-### 問題：
-- `L2_builder/contract_sdsl_lint.py` が存在する一方、`L2_builder/l2_gate_runner.py` ではこれを実行していません。
-- 現状の L2 publish フローは `conformance_check` / `freshness_check` のみであり、Contract SDSL の profile/placeholder/EdgeIntent 禁止などのルール違反がゲートで検出されない可能性があります。
-- 通常運用でも SSOT 直接編集のミスが混入すると、L2 で「通ったのに意味的に壊れている」状態を作り得ます。
+Contract SSOT の定義を将来の正式フォーマットへ拡張
+TS SSOT kernel の導入計画が固まった段階で registry の生成元を統合
 
-### 解決策案：
-- `l2_gate_runner.py` に `contract_sdsl_lint.py --input sdsl2/contract` を追加し、publish 時に必須ゲート化する。
-- もし既存の別ゲートで必ず検出する前提なら、その前提を README/Policy で明文化し、二重化を避ける。
+記述は「Planned（将来項目）」として以下にあります。実装は現リポジトリ内には見当たりません。
+
+記述（仕組み）
+
+Operatoon_flow.md（4.2 / 6.3 で TS SSOT kernel を Planned と明記）
+SDSL2_SSOT_Domain_Model.md（Definitions/Runtime の分離、Distribution Boundary JSON、Registry などの規則）
+実装（現状）
+
+TS 側の ssot_definitions.ts / ssot_runtime.ts は存在せず
+ssot_definitions.json の生成ツールも未実装
+現行で動いているのは token_registry_gen による registry 生成のみ（TS kernel そのものは未導入）
+TS SSOT kernel の実装まで進めますか？

@@ -3,7 +3,7 @@
 
 このレポジトリ運用は、SDSL2 を「書きやすく」するためというより、“確定していないもの” と “確定したもの” を混ぜないことによって、次を同時に実現するために設計されています。
 	•	SSOT（sdsl2/ 配下）：確定したグラフ事実・契約・参照（トークン）のみを保持し、CI で常に厳密に検証できる
-	•	非SSOT（drafts/, decisions/, policy/ など）：未確定・審査中・証拠付け・例外などを置き、意思決定プロセスを追跡できる
+	•	非SSOT（drafts/, decisions/, .sdsl/, policy/ など）：未確定・審査中・証拠付け・例外などを置き、意思決定プロセスを追跡できる
 	•	派生出力（OUTPUT/）：LLM やレビュー支援のための要約（Context Pack / Bundle Doc）や、TS の配布境界 JSON を決定論的に再生成できる
 
 つまり、流れとしては：
@@ -133,7 +133,7 @@ L1 の中核は、次の三点セットです。
 	3.	証拠が揃う（decisions/evidence.yaml）
 → これが揃うと READINESS-CHECK が PASSし、Promote が安全に回せます
 
-Operational Gate は、draft_lint / intent_lint / schema_migration_check / decisions_lint / evidence_lint / evidence_repair / readiness_check /
+Operational Gate は、duplicate_key_lint / draft_lint / intent_lint / schema_migration_check / decisions_lint / evidence_lint / evidence_repair / readiness_check /
 no_ssot_promotion_check / token_registry_check を順に実行し、policy の gate severity で FAIL/DIAG/IGNORE を決めます。
 （determinism_check は manifest 指定時のみ）
 no_ssot_promotion_check は sdsl2/ と decisions/ 配下への非SSOT混入や symlink を遮断します。

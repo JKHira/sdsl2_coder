@@ -23,6 +23,7 @@ Non-scope: Auto-apply, migrations, or any SSOT edits (diff-only only where speci
 ## Notes
 - Bundle Doc provenance uses Supplementary Section "provenance" and appends
   input_hash as a string in provenance.inputs to satisfy input_hash requirements.
+- Bundle Doc/Freshness input_hash excludes decisions by default; use --include-decisions to opt in.
 - exception_lint.py requires --today (YYYY-MM-DD) to keep results deterministic.
 - token_registry_gen accepts optional map inputs and can emit UNRESOLVED#/ entries.
 - l2_gate_runner uses --publish to enforce conformance/freshness and to fail on UNRESOLVED#/. 

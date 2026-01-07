@@ -19,6 +19,7 @@ Non-scope: Grammar/semantics changes; tool implementation.
 - Persisted outputs (if any) MUST be stored only at OUTPUT/context_pack.yaml and OUTPUT/bundle_doc.yaml (closed set).
 - Persisted Context Pack MUST include Supplementary: provenance (generator, source_rev, inputs). No other Supplementary sections are allowed in context_pack.yaml.
 - Context Pack input_hash MUST be computed from SSOT files only (no Explicit Inputs).
+- Bundle Doc provenance input_hash MUST follow the same SSOT-only rule by default; include Explicit Inputs only when explicitly requested by tooling.
 - Supplementary Sections MUST use delimiter `---` and heading `Supplementary: <key>`.
 - Supplementary Sections MUST be YAML block style; no flow style; no prose.
 - Supplementary Section maps MUST use schema key order; strings MUST be double-quoted (Supplementary Sections only).

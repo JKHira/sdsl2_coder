@@ -32,6 +32,7 @@ class EdgeInput:
 @dataclass(frozen=True)
 class TopologyInput:
     id_prefix: str
+    stage: str | None
     nodes: list[NodeInput]
     edges: list[EdgeInput]
     output_path: Path | None
@@ -247,7 +248,7 @@ def validate_ledger(data: dict[str, Any], output_root: Path) -> tuple[TopologyIn
         )
 
     file_header = _ensure_dict(data.get("file_header"), diagnostics, json_pointer("file_header"))
-    header_allowed = {"profile", "id_prefix"}
+    header_allowed = {"profile", "id_prefix", "stage"}
     for key in file_header.keys():
         if key not in header_allowed:
             _add_diag(
@@ -281,6 +282,27 @@ def validate_ledger(data: dict[str, Any], output_root: Path) -> tuple[TopologyIn
             json_pointer("file_header", "id_prefix"),
         )
         id_prefix = ""
+
+    stage = file_header.get("stage")
+    if stage is not None:
+        if not isinstance(stage, str):
+            _add_diag(
+                diagnostics,
+                "E_LEDGER_FIELD_TYPE_INVALID",
+                "stage must be a string",
+                "string",
+                type(stage).__name__,
+                json_pointer("file_header", "stage"),
+            )
+        elif stage not in {"L0", "L1", "L2"}:
+            _add_diag(
+                diagnostics,
+                "E_LEDGER_SCHEMA_INVALID",
+                "stage must be L0/L1/L2",
+                "L0|L1|L2",
+                stage,
+                json_pointer("file_header", "stage"),
+            )
 
     nodes_raw = _ensure_list(data.get("nodes"), diagnostics, json_pointer("nodes"))
     edges_raw = _ensure_list(data.get("edges"), diagnostics, json_pointer("edges"))
@@ -552,6 +574,7 @@ def validate_ledger(data: dict[str, Any], output_root: Path) -> tuple[TopologyIn
 
     return TopologyInput(
         id_prefix=id_prefix,
+        stage=stage if isinstance(stage, str) else None,
         nodes=nodes,
         edges=edges,
         output_path=output_path,

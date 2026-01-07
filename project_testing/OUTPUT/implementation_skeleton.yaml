@@ -1,0 +1,9 @@
+schema_version: "1.0"
+source_rev: d6fc07d8eca2e96cb53f5501a12ca7d1bc072580
+input_hash: "sha256:7e839c28c222198cba0de14c8d0b1519b0c27f0d9e8ab1e1b7543bacee324a1d"
+generator_id: L2_builder.implementation_skeleton_gen
+structures:
+  - INVENTORY_RESERVE
+  - PAYMENT_AND_FULFILLMENT
+rules:
+  []

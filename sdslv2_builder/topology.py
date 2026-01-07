@@ -26,6 +26,7 @@ class Edge:
 @dataclass(frozen=True)
 class TopologyModel:
     id_prefix: str
+    stage: str | None
     nodes: list[Node]
     edges: list[Edge]
 
@@ -67,6 +68,7 @@ def build_topology_model(input_data: TopologyInput) -> TopologyModel:
 
     return TopologyModel(
         id_prefix=input_data.id_prefix,
+        stage=input_data.stage,
         nodes=nodes,
         edges=edges,
     )

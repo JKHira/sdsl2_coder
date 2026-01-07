@@ -59,7 +59,13 @@ def write_topology(model: TopologyModel) -> str:
         raise TypeError("MODEL_TYPE_INVALID")
 
     lines: list[str] = []
-    lines.append(f'@File {{ profile:"topology", id_prefix:"{model.id_prefix}" }}')
+    header_parts = [
+        'profile:"topology"',
+        f'id_prefix:"{model.id_prefix}"',
+    ]
+    if model.stage:
+        header_parts.append(f'stage:"{model.stage}"')
+    lines.append(f"@File {{ {', '.join(header_parts)} }}")
 
     for node in _sort_nodes(model.nodes):
         lines.extend(_format_node(node))
