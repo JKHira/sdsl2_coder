@@ -254,6 +254,41 @@ def main() -> int:
     if _run_gate(readiness_cmd, "readiness_check", policy, args.verbose, exception_overrides) != 0:
         return 2
 
+    contract_resolution_cmd = [
+        py,
+        str(ROOT / "L1_builder" / "contract_resolution_lint.py"),
+        "--input",
+        str(project_root / "sdsl2" / "contract"),
+        "--fail-on-missing",
+        "--project-root",
+        str(project_root),
+    ]
+    if _run_gate(
+        contract_resolution_cmd,
+        "contract_resolution",
+        policy,
+        args.verbose,
+        exception_overrides,
+        default_severity="DIAG",
+    ) != 0:
+        return 2
+
+    contract_bind_cmd = [
+        py,
+        str(ROOT / "L1_builder" / "contract_token_bind_check.py"),
+        "--project-root",
+        str(project_root),
+    ]
+    if _run_gate(
+        contract_bind_cmd,
+        "contract_token_bind",
+        policy,
+        args.verbose,
+        exception_overrides,
+        default_severity="DIAG",
+    ) != 0:
+        return 2
+
     no_ssot_cmd = [
         py,
         str(ROOT / "L1_builder" / "no_ssot_promotion_check.py"),

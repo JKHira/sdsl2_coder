@@ -85,7 +85,7 @@ def _dump_ledger(
 def _resolve_path(base: Path, raw: str) -> Path:
     path = Path(raw)
     if not path.is_absolute():
-        path = (base / path).resolve()
+        path = (base / path).absolute()
     return path
 
 

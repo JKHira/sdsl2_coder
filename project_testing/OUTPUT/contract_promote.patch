@@ -1,8 +1,0 @@
---- /Volumes/SSD/Dev_Projects/SDSL2_Coder/project_testing/sdsl2/contract/P0_C_ORDER_FLOW.sdsl2
-+++ /Volumes/SSD/Dev_Projects/SDSL2_Coder/project_testing/sdsl2/contract/P0_C_ORDER_FLOW.sdsl2
-@@ -1 +1,5 @@
- @File { profile:"contract", id_prefix:"P0_C_ORDER_FLOW" }
-+@Structure { id:"INVENTORY_RESERVE" }
-+struct INVENTORY_RESERVE {}
-+@Structure { id:"PAYMENT_AND_FULFILLMENT" }
-+struct PAYMENT_AND_FULFILLMENT {}

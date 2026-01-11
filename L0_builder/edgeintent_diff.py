@@ -106,17 +106,20 @@ def main() -> int:
     project_root = Path(args.project_root).resolve() if args.project_root else ROOT
     topo_path = Path(args.input)
     if not topo_path.is_absolute():
-        topo_path = (project_root / topo_path).resolve()
+        topo_path = (project_root / topo_path).absolute()
     draft_path = Path(args.draft)
     if not draft_path.is_absolute():
-        draft_path = (project_root / draft_path).resolve()
+        draft_path = (project_root / draft_path).absolute()
     try:
         topo_path.resolve().relative_to(project_root.resolve())
         draft_path.resolve().relative_to(project_root.resolve())
     except ValueError:
         print("E_EDGEINTENT_DIFF_INPUT_OUTSIDE_PROJECT", file=sys.stderr)
         return 2
-    ssot_root = (project_root / "sdsl2" / "topology").resolve()
+    ssot_root = (project_root / "sdsl2" / "topology").absolute()
+    if ssot_root.is_symlink() or _has_symlink_parent(ssot_root, project_root):
+        print("E_EDGEINTENT_DIFF_SSOT_ROOT_SYMLINK", file=sys.stderr)
+        return 2
     try:
         topo_path.resolve().relative_to(ssot_root)
     except ValueError:
@@ -128,7 +131,7 @@ def main() -> int:
     if topo_path.is_symlink() or _has_symlink_parent(topo_path, project_root):
         print("E_EDGEINTENT_DIFF_INPUT_SYMLINK", file=sys.stderr)
         return 2
-    intent_root = (project_root / "drafts" / "intent").resolve()
+    intent_root = (project_root / "drafts" / "intent").absolute()
     if intent_root.is_symlink() or _has_symlink_parent(intent_root, project_root):
         print("E_EDGEINTENT_DIFF_INTENT_ROOT_SYMLINK", file=sys.stderr)
         return 2
@@ -144,7 +147,7 @@ def main() -> int:
         print("E_EDGEINTENT_DIFF_INPUT_NOT_FOUND", file=sys.stderr)
         return 2
 
-    preview_path = (project_root / "OUTPUT" / "intent_preview.sdsl2").resolve()
+    preview_path = (project_root / "OUTPUT" / "intent_preview.sdsl2").absolute()
     try:
         preview_path.relative_to(project_root.resolve())
     except ValueError:

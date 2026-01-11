@@ -13,6 +13,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from sdslv2_builder.input_hash import compute_input_hash
+from sdslv2_builder.io_atomic import atomic_write_text
 from sdslv2_builder.lint import _capture_metadata, _parse_metadata_pairs, _split_list_items
 from sdslv2_builder.op_yaml import load_yaml
 from sdslv2_builder.refs import parse_contract_ref, parse_ssot_ref
@@ -229,7 +230,7 @@ def _write_registry(
         "entries": entries,
     }
     text = json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")) + "\n"
-    path.write_text(text, encoding="utf-8")
+    atomic_write_text(path, text, symlink_code="E_REGISTRY_GEN_OUTPUT_SYMLINK")
 
 
 def main() -> int:

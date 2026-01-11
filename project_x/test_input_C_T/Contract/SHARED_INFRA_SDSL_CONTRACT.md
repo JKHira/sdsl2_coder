@@ -724,7 +724,7 @@ const REDIS_KEYS_SAFETY = {
 // @Const.SI_C_RKC_REDIS_KEYS_FEATURE_MAP: Redis key catalog map for feature pipeline
 const REDIS_KEYS_FEATURE = {
   FEATURE_REQ: "feature:req:{model_id}",      // List, no TTL
-  FEATURE_RESP: "feature:resp:{trace_id}",    // List, 60s TTL
+  FEATURE_RESP: "feature:resp:{trace_id}",    // List, 10s TTL (SSOT: SHARED_CONSTANTS §2.2)
   BUFFER_REGISTRY: "buffer:registry:{buffer_id}" // Hash, no TTL
 }
 

@@ -21,7 +21,7 @@ DEFAULT_OUT = "OUTPUT/context_pack.yaml"
 def _resolve_path(base: Path, raw: str) -> Path:
     path = Path(raw)
     if not path.is_absolute():
-        path = (base / path).resolve()
+        path = (base / path).absolute()
     return path
 
 
@@ -79,7 +79,10 @@ def main() -> int:
         return 2
 
     input_path = _resolve_path(project_root, args.input)
-    ssot_root = (project_root / "sdsl2" / "topology").resolve()
+    ssot_root = (project_root / "sdsl2" / "topology").absolute()
+    if ssot_root.is_symlink() or _has_symlink_parent(ssot_root, project_root):
+        print("E_CONTEXT_PACK_SSOT_ROOT_SYMLINK", file=sys.stderr)
+        return 2
     try:
         input_path.resolve().relative_to(ssot_root)
     except ValueError:
@@ -142,7 +145,7 @@ def main() -> int:
         return 0
 
     out_path = _resolve_path(project_root, args.out)
-    expected = (project_root / DEFAULT_OUT).resolve()
+    expected = (project_root / DEFAULT_OUT).absolute()
     if out_path != expected:
         print("E_CONTEXT_PACK_OUTPUT_PATH_INVALID", file=sys.stderr)
         return 2

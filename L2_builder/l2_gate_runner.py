@@ -151,6 +151,11 @@ def main() -> int:
         help="Project root (defaults to repo root); inputs can be relative to it",
     )
     ap.add_argument(
+        "--kernel-root",
+        default=None,
+        help="SSOT kernel source root (defaults to project root)",
+    )
+    ap.add_argument(
         "--decisions-path",
         default="decisions/edges.yaml",
         help="decisions/edges.yaml path",
@@ -172,6 +177,11 @@ def main() -> int:
         help="Run conformance_check and freshness_check for publish",
     )
     ap.add_argument(
+        "--build-ssot",
+        action="store_true",
+        help="Build SSOT definitions and registries before running gates",
+    )
+    ap.add_argument(
         "--policy-path",
         default=None,
         help="Explicit policy path for gate severities",
@@ -183,7 +193,16 @@ def main() -> int:
     )
     args = ap.parse_args()
 
-    project_root = Path(args.project_root).resolve() if args.project_root else ROOT
+    if args.project_root:
+        raw_root = Path(args.project_root)
+        project_root = (ROOT / raw_root).resolve() if not raw_root.is_absolute() else raw_root.resolve()
+    else:
+        project_root = ROOT
+    if args.kernel_root:
+        raw_kernel = Path(args.kernel_root)
+        kernel_root = (ROOT / raw_kernel).resolve() if not raw_kernel.is_absolute() else raw_kernel.resolve()
+    else:
+        kernel_root = project_root
     py = sys.executable
     policy_path = Path(args.policy_path) if args.policy_path else None
     policy_result = load_policy(policy_path, project_root)
@@ -196,6 +215,34 @@ def main() -> int:
     exception_overrides: set[str] = set()
     if today is not None:
         exception_overrides = _collect_exception_overrides(project_root, today)
+
+    if args.build_ssot:
+        build_cmd = [
+            py,
+            str(ROOT / "ssot_kernel_builder" / "build_ssot_definitions.py"),
+            "--project-root",
+            str(project_root),
+        ]
+        if args.kernel_root:
+            build_cmd.extend(["--kernel-root", str(kernel_root)])
+        if _run_gate(build_cmd, None, policy, args.verbose) != 0:
+            return 2
+        contract_cmd = [
+            py,
+            str(ROOT / "L2_builder" / "contract_definitions_gen.py"),
+            "--project-root",
+            str(project_root),
+        ]
+        if _run_gate(contract_cmd, None, policy, args.verbose) != 0:
+            return 2
+        registry_cmd = [
+            py,
+            str(ROOT / "L2_builder" / "token_registry_gen.py"),
+            "--project-root",
+            str(project_root),
+        ]
+        if _run_gate(registry_cmd, None, policy, args.verbose) != 0:
+            return 2
 
     l1_cmd = [
         py,
@@ -254,6 +301,35 @@ def main() -> int:
         return 2
 
     if args.publish:
+        source_cmd = [
+            py,
+            str(ROOT / "L2_builder" / "ssot_kernel_source_lint.py"),
+            "--project-root",
+            str(project_root),
+        ]
+        if args.kernel_root:
+            source_cmd.extend(["--kernel-root", str(kernel_root)])
+        if _run_gate(source_cmd, "ssot_kernel_source", policy, args.verbose) != 0:
+            return 2
+
+        kernel_cmd = [
+            py,
+            str(ROOT / "L2_builder" / "ssot_kernel_lint.py"),
+            "--project-root",
+            str(project_root),
+        ]
+        if _run_gate(kernel_cmd, "ssot_kernel", policy, args.verbose) != 0:
+            return 2
+
+        registry_cmd = [
+            py,
+            str(ROOT / "L2_builder" / "ssot_registry_consistency_check.py"),
+            "--project-root",
+            str(project_root),
+        ]
+        if _run_gate(registry_cmd, "ssot_registry_consistency", policy, args.verbose) != 0:
+            return 2
+
         conformance_cmd = [
             py,
             str(ROOT / "L2_builder" / "conformance_check.py"),

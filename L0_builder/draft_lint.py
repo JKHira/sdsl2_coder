@@ -55,7 +55,7 @@ def main() -> int:
         return 2
     path = Path(args.input)
     if not path.is_absolute():
-        path = (project_root / path).resolve()
+        path = (project_root / path).absolute()
     if not _ensure_under_root(path, drafts_root, "E_DRAFT_INPUT_NOT_DRAFTS_ROOT"):
         return 2
     if not path.exists():

@@ -1,4 +1,0 @@
-{
-  "CONTRACT.InventoryReserve": "OUTPUT/ssot/contract_definitions.json#/contracts/InventoryReserve",
-  "CONTRACT.PaymentAndFulfillment": "OUTPUT/ssot/contract_definitions.json#/contracts/PaymentAndFulfillment"
-}

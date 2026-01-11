@@ -1,8 +1,0 @@
-schema_version: "1.0"
-source_rev: 60ad7e3c0855992b0c3d561ad24a777a5fb618b6
-input_hash: "sha256:dce6a1e70fc4c370729bfa7aee502297d76de6c117720eabd0a69997bad0e3c5"
-generator_id: L2_builder.implementation_skeleton_gen
-structures:
-  - MINIMAL_EVENT
-rules:
-  - MINIMAL_RULE

@@ -34,6 +34,14 @@ def _ensure_under_root(path: Path, root: Path, code: str) -> bool:
     return True
 
 
+def _is_under_root(path: Path, root: Path) -> bool:
+    try:
+        path.resolve().relative_to(root.resolve())
+    except ValueError:
+        return False
+    return True
+
+
 def _collect_sdsl2_files(root: Path, ssot_root: Path) -> list[Path] | None:
     files: list[Path] = []
     for dirpath, dirnames, filenames in os.walk(root, followlinks=False):
@@ -65,11 +73,31 @@ def main() -> int:
         default=None,
         help="Project root (defaults to repo root); inputs can be relative to it",
     )
+    ap.add_argument(
+        "--skip-resolution-lint",
+        action="store_true",
+        help="Skip topology resolution lint",
+    )
+    ap.add_argument(
+        "--fail-on-missing",
+        action="store_true",
+        help="Fail on missing topology resolution fields",
+    )
+    ap.add_argument(
+        "--skip-resolution-gaps",
+        action="store_true",
+        help="Skip topology resolution gap report",
+    )
+    ap.add_argument(
+        "--resolution-gaps-out",
+        default="OUTPUT/resolution_gaps.yaml",
+        help="Output path for resolution gap report (under OUTPUT/)",
+    )
     args = ap.parse_args()
 
     project_root = Path(args.project_root).resolve() if args.project_root else ROOT
-    ssot_root = (project_root / "sdsl2").resolve()
-    if ssot_root.is_symlink():
+    ssot_root = (project_root / "sdsl2").absolute()
+    if ssot_root.is_symlink() or _has_symlink_parent(ssot_root, project_root):
         print("E_LINT_SSOT_ROOT_SYMLINK", file=sys.stderr)
         return 2
 
@@ -77,7 +105,7 @@ def main() -> int:
     for raw in args.input:
         path = Path(raw)
         if not path.is_absolute():
-            path = (project_root / path).resolve()
+            path = (project_root / path).absolute()
         if not _ensure_under_root(path, project_root, "E_LINT_INPUT_OUTSIDE_PROJECT"):
             return 2
         if not _ensure_under_root(path, ssot_root, "E_LINT_INPUT_NOT_SSOT"):
@@ -115,7 +143,33 @@ def main() -> int:
         add_cmd.extend(["--input", str(path)])
     if args.policy_path:
         add_cmd.extend(["--policy-path", args.policy_path])
-    return _run(add_cmd)
+    rc = _run(add_cmd)
+    if rc != 0:
+        return rc
+
+    topo_root = (project_root / "sdsl2" / "topology").absolute()
+    topo_files = [path for path in files if _is_under_root(path, topo_root)]
+    if topo_files and not args.skip_resolution_lint:
+        lint_cmd = [sys.executable, str(ROOT / "L0_builder" / "topology_resolution_lint.py")]
+        for path in topo_files:
+            lint_cmd.extend(["--input", str(path)])
+        lint_cmd.extend(["--project-root", str(project_root)])
+        if args.fail_on_missing:
+            lint_cmd.append("--fail-on-missing")
+        rc = _run(lint_cmd)
+        if rc != 0:
+            return rc
+
+    if topo_files and not args.skip_resolution_gaps:
+        report_cmd = [sys.executable, str(ROOT / "L0_builder" / "resolution_gap_report.py")]
+        for path in topo_files:
+            report_cmd.extend(["--input", str(path)])
+        report_cmd.extend(["--project-root", str(project_root), "--out", args.resolution_gaps_out])
+        rc = _run(report_cmd)
+        if rc != 0:
+            return rc
+
+    return 0
 
 
 if __name__ == "__main__":

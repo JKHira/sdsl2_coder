@@ -55,7 +55,9 @@ def _git_rev(project_root: Path) -> tuple[str, str | None]:
 def _split_context_and_supplementary(text: str) -> tuple[str, list[str]]:
     lines = text.splitlines(keepends=True)
     for idx, line in enumerate(lines):
-        if line.strip() == "---":
+        if line.strip() != "---":
+            continue
+        if idx + 1 < len(lines) and lines[idx + 1].strip().startswith("Supplementary: "):
             return "".join(lines[:idx]), lines[idx:]
     return text, []
 
@@ -93,6 +95,10 @@ def _validate_supplementary_order(keys: list[str]) -> None:
     order = [SUPPLEMENTARY_ORDER.index(key) for key in keys]
     if order != sorted(order):
         raise ValueError("E_BUNDLE_DOC_SUPPLEMENTARY_ORDER")
+
+
+def _normalize_block_lines(lines: list[str]) -> list[str]:
+    return [line[:-1] if line.endswith("\n") else line for line in lines]
 
 
 def _render_provenance(source_rev: str, inputs: list[str]) -> list[str]:
@@ -272,7 +278,7 @@ def main() -> int:
     inputs_rel.append(f"input_hash:{result.input_hash}")
 
     raw_text = context_path.read_text(encoding="utf-8")
-    _, sup_lines = _split_context_and_supplementary(raw_text)
+    context_text, sup_lines = _split_context_and_supplementary(raw_text)
     try:
         existing_blocks = _parse_supplementary_blocks(sup_lines) if sup_lines else []
         existing_keys = [key for key, _ in existing_blocks]
@@ -283,47 +289,49 @@ def main() -> int:
         return 2
 
     supplement_lines: list[str] = []
+    existing_map = {key: _normalize_block_lines(block) for key, block in existing_blocks}
 
-    added_keys: list[str] = []
-    last_existing_index = -1
-    if existing_keys:
-        last_existing_index = max(SUPPLEMENTARY_ORDER.index(key) for key in existing_keys)
-
-    def append_block(key: str, lines: list[str]) -> bool:
+    def extend_block(lines: list[str]) -> None:
         nonlocal supplement_lines
         if not lines:
-            return False
-        if key in existing_keys:
-            return False
-        if SUPPLEMENTARY_ORDER.index(key) < last_existing_index:
-            print("E_BUNDLE_DOC_SUPPLEMENTARY_ORDER", file=sys.stderr)
-            raise ValueError("E_BUNDLE_DOC_SUPPLEMENTARY_ORDER")
-        supplement_lines.extend(["---", f"Supplementary: {key}"])
+            return
         supplement_lines.extend(lines)
-        supplement_lines.append("")
-        added_keys.append(key)
-        return True
+        if supplement_lines and supplement_lines[-1] != "":
+            supplement_lines.append("")
+
+    def _build_block(key: str, lines: list[str]) -> list[str]:
+        return ["---", f"Supplementary: {key}", *lines]
 
     try:
+        generated: dict[str, list[str]] = {}
         if decisions_needed_path.exists():
             decisions_lines = _load_supplementary_yaml(decisions_needed_path, "decisions_needed")
-            append_block("decisions_needed", decisions_lines)
-        if "provenance" not in existing_keys:
-            append_block("provenance", _render_provenance(source_rev, inputs_rel)[2:])
+            if decisions_lines:
+                generated["decisions_needed"] = _build_block("decisions_needed", decisions_lines)
+        generated["provenance"] = _render_provenance(source_rev, inputs_rel)
         if diagnostics_summary_path.exists():
             diagnostics_lines = _load_supplementary_yaml(diagnostics_summary_path, "diagnostics_summary")
-            append_block("diagnostics_summary", diagnostics_lines)
+            if diagnostics_lines:
+                generated["diagnostics_summary"] = _build_block("diagnostics_summary", diagnostics_lines)
     except ValueError as exc:
         print(str(exc), file=sys.stderr)
         return 2
 
+    for key in SUPPLEMENTARY_ORDER:
+        if key == "provenance":
+            block_lines = generated.get(key)
+        else:
+            block_lines = existing_map.get(key) or generated.get(key)
+        if block_lines:
+            extend_block(block_lines)
+
     supplement = "\n".join(supplement_lines)
     separator = ""
-    if supplement and not raw_text.endswith("\n"):
+    if supplement and not context_text.endswith("\n"):
         separator = "\n"
     out_path.parent.mkdir(parents=True, exist_ok=True)
     try:
-        atomic_write_text(out_path, raw_text + separator + supplement, symlink_code="E_BUNDLE_DOC_OUTPUT_SYMLINK")
+        atomic_write_text(out_path, context_text + separator + supplement, symlink_code="E_BUNDLE_DOC_OUTPUT_SYMLINK")
     except ValueError as exc:
         print(str(exc), file=sys.stderr)
         return 2

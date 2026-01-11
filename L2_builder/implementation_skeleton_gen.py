@@ -13,6 +13,7 @@ sys.path.insert(0, str(ROOT))
 
 from L2_builder.common import ROOT as REPO_ROOT, ensure_inside, has_symlink_parent, resolve_path
 from sdslv2_builder.input_hash import compute_input_hash
+from sdslv2_builder.io_atomic import atomic_write_text
 from sdslv2_builder.lint import _capture_metadata, _parse_metadata_pairs
 from sdslv2_builder.op_yaml import dump_yaml
 
@@ -135,7 +136,7 @@ def main() -> int:
     }
 
     out_path.parent.mkdir(parents=True, exist_ok=True)
-    out_path.write_text(dump_yaml(payload), encoding="utf-8")
+    atomic_write_text(out_path, dump_yaml(payload), symlink_code="E_SKELETON_OUTPUT_SYMLINK")
     return 0
 
 

@@ -1,5 +1,9 @@
 addendum:
   enabled: true
+gates:
+  ssot_kernel_source: FAIL
+  ssot_kernel: FAIL
+  ssot_registry_consistency: FAIL
 stage_policy:
   allow_l0_terminal: false
   l0_kind_mode: fail

@@ -1,0 +1,20 @@
+name: ssot-kernel
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  ssot:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: SSOT publish
+        run: python3 scripts/ssot_publish.py --project-root project_testing --kernel-root . --today "$(date +%F)"
+      - name: SSOT determinism
+        run: python3 scripts/ssot_determinism_check.py --project-root project_testing --kernel-root . --today "$(date +%F)"

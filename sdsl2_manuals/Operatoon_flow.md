@@ -11,7 +11,7 @@
 	2.	L1 で「インターフェース（Edge＋contract_refs）を確定」させ、Topology SSOT を“グラフ事実”として成立させる
 	3.	L2 で「振る舞い（invariants/authz）まで確定」させ、運用上の DoD を満たす
 並行して、Contract SSOT を整備し、トークン参照を閉じる（Registry で欠落を許さない）。
-※TS SSOT kernel は将来項目（Planned）。
+※TS SSOT kernel は進行中（definitions/runtime/registry は導入済み）。
 
 ⸻
 
@@ -50,12 +50,17 @@ D) Derived Outputs（派生出力：保存しても権威にならない）
 	•	OUTPUT/intent_preview.sdsl2
 	•	OUTPUT/context_pack.yaml
 	•	OUTPUT/bundle_doc.yaml
+	•	OUTPUT/decisions_needed.yaml
+	•	OUTPUT/diagnostics_summary.yaml
+	•	OUTPUT/resolution_gaps.yaml
+	•	OUTPUT/implementation_skeleton.yaml
 	•	OUTPUT/ssot/ssot_registry.json
 	•	OUTPUT/ssot/contract_registry.json
 	•	OUTPUT/ssot/ssot_definitions.json
+	•	OUTPUT/ssot/ssot_registry_map.json
 
 ※OUTPUT/ssot/ssot_registry.json と OUTPUT/ssot/contract_registry.json は token_registry_gen で生成（現運用）。
-OUTPUT/ssot/ssot_definitions.json は Planned。
+OUTPUT/ssot/ssot_definitions.json は build_ssot_definitions で生成（現運用）。
 
 これらは 必ず再生成できることが要求され、手編集は禁止です。保存する場合は source_rev と input_hash で “この入力集合から生成した” が追跡できる必要があります。
 intent_preview は cache 扱い（非SSOT・非権威）とし、必要時に再生成する前提で運用します。
@@ -105,6 +110,12 @@ L0 のゴール
 	•	OUTPUT/intent_preview.sdsl2
 	•	Intent YAML から決定論的に生成し、SSOT には反映しない
 
+	6.	Resolution Gap Report（欠落診断の派生出力）
+
+	•	OUTPUT/resolution_gaps.yaml
+	•	Topology の必須フィールド不足を機械的に列挙する（SSOT には反映しない）
+	•	manual_addendum_lint は topology_resolution_lint / resolution_gap_report を実行する（skip フラグで除外可）
+
 曖昧さ（Ambiguity）は、L0/L1 の“吸収剤”として扱う
 
 L0 では、設計・実装・既存コードの状況が揃わず、次が頻出します。
@@ -134,7 +145,8 @@ L1 の中核は、次の三点セットです。
 → これが揃うと READINESS-CHECK が PASSし、Promote が安全に回せます
 
 Operational Gate は、duplicate_key_lint / draft_lint / intent_lint / schema_migration_check / decisions_lint / evidence_lint / evidence_repair / readiness_check /
-no_ssot_promotion_check / token_registry_check を順に実行し、policy の gate severity で FAIL/DIAG/IGNORE を決めます。
+contract_resolution_lint / contract_token_bind_check / no_ssot_promotion_check / token_registry_check を順に実行し、policy の gate severity で FAIL/DIAG/IGNORE を決めます。
+contract_resolution_lint / contract_token_bind_check は policy 未指定時は DIAG が既定です。
 （determinism_check は manifest 指定時のみ）
 no_ssot_promotion_check は sdsl2/ と decisions/ 配下への非SSOT混入や symlink を遮断します。
 token_registry_check は UNRESOLVED#/ を暫定許容し、publish 時は UNRESOLVED#/ を FAIL にします（段階的厳格化）。
@@ -156,6 +168,9 @@ L1 では、Edge を SSOT に昇格させるだけでなく、contract_refs の�
 	•	locator + content_hash によって「後で内容が変わったら検知できる」ようにする
 	•	evidence_template_gen は claims 骨格を生成し、evidence_hash_helper は content_hash を算出・検証する
 	•	evidence_repair は content_hash の再計算結果を diff-only で提示する
+
+補助出力（任意）
+	•	next_actions_gen で OUTPUT/decisions_needed.yaml と OUTPUT/diagnostics_summary.yaml を生成し、Bundle Doc の補助情報として使う
 
 Promote：決定 → SSOT への“唯一の昇格路”
 
@@ -182,8 +197,11 @@ L2 のゴール
 ここで重要なのは、L2 は “より厳格” というより、未確定を例外として可視化し、期限付きで焼き切る段階だという点です。
 未整備を放置する代わりに、policy/exceptions.yaml に「何が未達で、いつまでに、どう出口を作るか」を持たせます。
 
+L2 の派生出力（非SSOT）
+	•	implementation_skeleton_gen で OUTPUT/implementation_skeleton.yaml を生成する
+
 L2 の実行順（l2_gate_runner）
-	•	Operational Gate（L1）→ Drift → Exception →（publish 時）Conformance / Freshness
+	•	Operational Gate（L1）→ Contract SDSL lint（contract_sdsl_lint）→ Drift（drift_check）→ Exception（exception_lint）→（publish 時）SSOT kernel（ssot_kernel_lint）/ registry consistency（ssot_registry_consistency_check）/ Conformance（conformance_check）/ Freshness（freshness_check）
 	•	exception_lint は policy の severity（FAIL/DIAG/IGNORE）を適用する
 
 ⸻
@@ -203,22 +221,25 @@ Contract の確定入力は decisions/contracts.yaml とし、contract_promote �
 
 ⸻
 
-4.2 TS SSOT kernel（Planned）：Definition と Runtime を分離し、JSON 配布境界を固定化する
+4.2 TS SSOT kernel：Definition と Runtime を分離し、JSON 配布境界を固定化する
 
-※4.2 は現時点の運用には未導入。将来の完成形として扱う。
+ssot_kernel_builder/ に definitions/runtime とビルドスクリプトを置き、OUTPUT/ssot/ssot_definitions.json を生成する。
 
 TS 側は、SDSL2 と同列の SSOT ではなく、別ドメインの権威として扱われます（相互依存を禁止しているのがポイントです）。
 
 4.2.1 ファイル（概念）と出力（必須）
 	•	TS 側のソース：
-	•	ssot_definitions.ts：const / types / enums / interfaces（定義のみ）
-	•	ssot_runtime.ts：guards / builders / validators（実行時のみ）
+	•	ssot_kernel_builder/ssot_definitions.ts：const / types / enums / interfaces（定義のみ）
+	•	ssot_kernel_builder/ssot_runtime.ts：guards / builders / validators（実行時のみ）
+	•	L2_builder/ssot_kernel_source_lint.py：definitions/runtime の許容構文を検査（ssot_kernel_source）
 	•	TS の派生出力（配布境界）：
 	•	OUTPUT/ssot/ssot_definitions.json
 	•	OUTPUT/ssot/ssot_registry.json
 	•	OUTPUT/ssot/contract_registry.json
 
-Registry 自体は token_registry_gen で生成され、TS 定義との対応付けは Planned。
+Registry 自体は token_registry_gen で生成し、ssot_registry_map.json で対応付けする。
+publish では l2_gate_runner --publish --build-ssot を使い、definitions 出力と registry を先に確定させる。
+project_root と kernel_root が異なる場合は --kernel-root を指定する。
 
 ここで “完成形” に向かう進化として重要なのは、非TSコンシューマは TS ソースを直接 import しないことです。
 必ず JSON（配布境界）か、そこから生成したバインディングを使います。
@@ -231,6 +252,7 @@ SDSL2 は TS 定義を直接参照しません。参照は SSOT.* / CONTRACT.* �
 	•	Registry：token -> <path>#/<json_pointer> の対応を持つ
 	•	CI：SDSL2 が使った SSOT.* / CONTRACT.* が Registry にないと FAIL
 	•	UNRESOLVED#/ は pre-publish では許容し、publish では FAIL
+	•	非コアの SSOT.* は ssot_definitions.ts で kind:"ref" のまま暫定可（Registry で解決される限り publish は通す）。権威が確定したら rule/table へ昇格して map を更新する
 
 この構造により、「SDSL2 と TS の結合」が ソースコード結合ではなく、明示トークン＋レジストリ結合になり、最終状態での決定性が高まります。
 
@@ -241,10 +263,10 @@ SDSL2 は TS 定義を直接参照しません。参照は SSOT.* / CONTRACT.* �
 運用が回り続けるのは、CI が「各段階で許される未確定」を定義し、それ以外を止めるからです。
 ゲートは概ね次の役割分担です。
 	1.	Manual / Addendum：SDSL と staged rules の違反を止める
-	2.	Operational Gate：draft/intent/decisions/evidence の健全性＋schema_migration/evidence_repair/no_ssot_promotion/token_registry を順に検証
+	2.	Operational Gate：draft/intent/decisions/evidence の健全性＋duplicate_key/contract_resolution/contract_token_bind/schema_migration/evidence_repair/no_ssot_promotion/token_registry を順に検証
 	3.	Drift：SSOT と decisions の不整合を止める
 	4.	Exception：例外の期限・上限・出口条件を強制する（L2）
-	5.	Determinism/Freshness：OUTPUT 等の派生物が “今の入力から再現できるか” を止める（publish）
+	5.	Determinism/Freshness：OUTPUT 等の派生物が “今の入力から再現できるか” を止める（publish、ssot_kernel_source/ssot_kernel/registry consistency を含む）
 
 ここで実務的に最も効くのは次です。
 	•	L0：Missing Decisions を policy で DIAG 扱いにでき、移行中でも回しやすい
@@ -267,9 +289,10 @@ SDSL2 は TS 定義を直接参照しません。参照は SSOT.* / CONTRACT.* �
 	•	Evidence が要求されるポリシーの場合、それが coverage と検証可能性を満たす
 	•	SSOT.* / CONTRACT.* の参照が Registry で解決でき、token_registry_check が PASS
 
-6.3 TS SSOT kernel の完成（Planned）
+6.3 TS SSOT kernel の完成（進行中）
 	•	Definitions と Runtime が分離され、Topology/Contract に依存しない
 	•	ssot_definitions.json（配布境界）と ssot_registry.json / contract_registry.json（参照辞書）が生成され、SDSL2 の参照がすべて解決できる
+	•	ssot_registry_map.json で token -> target を固定する
 	•	非TSコンシューマが TS ソース import をしていない（JSON で統一）
 
 ⸻
@@ -297,11 +320,11 @@ SDSL2 は TS 定義を直接参照しません。参照は SSOT.* / CONTRACT.* �
 	•	drift が解消される（SSOT と decisions が一致）
 	•	Contract は decisions/contracts.yaml → contract_promote の diff を適用して確定
 
-	4.	Contract と TS の“参照穴”を閉じる（TS は Planned）
+	4.	Contract と TS の“参照穴”を閉じる
 
 	•	CONTRACT.* の整備（Contract SSOT と allowlist/registry）
 	•	token_registry_gen で Registry を生成し、token_registry_check で参照の解決を保証
-	•	SSOT.* の target 対応（TS definitions 由来）は Planned
+	•	SSOT.* の target は ssot_registry_map.json で固定し、publish では未解決を FAIL
 
 	5.	L2（振る舞いと例外の焼き切り）
 

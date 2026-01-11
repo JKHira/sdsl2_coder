@@ -42,7 +42,7 @@ def _diag_to_dict(diags: list[Diagnostic]) -> list[dict]:
 def _resolve_path(base: Path, raw: str) -> Path:
     path = Path(raw)
     if not path.is_absolute():
-        path = (base / path).resolve()
+        path = (base / path).absolute()
     return path
 
 

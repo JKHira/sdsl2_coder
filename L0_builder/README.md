@@ -12,6 +12,8 @@ Ready
 - `intent_builder.py` -> Normalize/fill Intent YAML under drafts/intent.
 - `draft_lint.py` -> Draft schema validation.
 - `ledger_builder.py` -> Build topology ledger from a node list.
+- `topology_resolution_lint.py` -> Topology resolution lint for required fields (L0 safety).
+- `resolution_gap_report.py` -> Emit resolution gaps to OUTPUT/resolution_gaps.yaml.
 - `edgeintent_diff.py` -> Intent preview diff generator (stdout unified diff against OUTPUT/intent_preview.sdsl2 only; no auto-apply).
 
 Planned (not implemented yet)
@@ -69,6 +71,13 @@ Notes:
 - L0 input_hash uses SSOT only; decisions are not required.
 - Intent YAML input is restricted to `drafts/intent/*.yaml` (use `intent_builder.py`).
 
+Topology resolution lint / gap report:
+
+```bash
+python L0_builder/topology_resolution_lint.py --input /repo/sdsl2/topology --project-root /repo
+python L0_builder/resolution_gap_report.py --input /repo/sdsl2/topology --project-root /repo
+```
+
 EdgeIntent diff:
 
 ```bash
@@ -102,7 +111,9 @@ python L0_builder/ledger_builder.py \
 
 Notes
 - context_pack_gen input_hash uses SSOT only (no decisions).
+- context_pack_gen `--out` must be OUTPUT/context_pack.yaml (or `--out -` for stdout).
 - Derived outputs should remain under `OUTPUT/`.
+- resolution_gap_report writes under `OUTPUT/` (default: OUTPUT/resolution_gaps.yaml).
 - Ledger outputs should remain under `drafts/ledger/`.
 - Ledger inputs are exclusive: use `--nodes` or `--extract-structures-from` (not both).
 - Placeholders (None/TBD/Opaque) are forbidden in SDSL statements.

@@ -1,4 +1,0 @@
-addendum:
-  enabled: true
-stage_policy:
-  repo_min_stage: "L0"
