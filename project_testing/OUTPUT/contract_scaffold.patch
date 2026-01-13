@@ -1,0 +1,9 @@
+--- /Volumes/SSD/Dev_Projects/SDSL2_Coder/project_testing/sdsl2/contract/P0_C_ORDER_FLOW.sdsl2
++++ /Volumes/SSD/Dev_Projects/SDSL2_Coder/project_testing/sdsl2/contract/P0_C_ORDER_FLOW.sdsl2
+@@ -9,3 +9,6 @@
+ 
+ @Rule { id:"AUTHZ_RESERVE_INVENTORY", bind:@Function.RESERVE_INVENTORY, contract:["CONTRACT.RESERVE_INVENTORY"] }
+ @Rule { id:"AUTHZ_PAY_AND_FULFILL", bind:@Function.PAY_AND_FULFILL, contract:["CONTRACT.PAY_AND_FULFILL"] }
++@DocMeta { id:"DOC_META", desc:"gen:contract_scaffold_gen_v0_1;rev:496f615000216066724be8d0ce151ad138af0b35;input:sha256:96e9e9c7574e52b6f9d6792ec95cfd1f09b3ccbfac5cb380002759575ae31097" }
++@Type { id:"NOTIFY_ORDER", contract:["CONTRACT.NOTIFY_ORDER"] }
++type NOTIFY_ORDER = "UNSPECIFIED"

@@ -1,0 +1,4 @@
+nodes:
+  - id: ORDER_API
+    summary: "Order intake and orchestration"
+    io: "http:order_api"

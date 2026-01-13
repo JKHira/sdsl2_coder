@@ -1,0 +1,16 @@
+version: topology-ledger-v0.1
+schema_revision: "1"
+file_header:
+  profile: topology
+  id_prefix: "P0_T_ORDER_FLOW_L0"
+  stage: "L0"
+nodes:
+  - id: "EXTERNAL_CLIENT"
+    kind: "service"
+  - id: "INVENTORY_SERVICE"
+    kind: "service"
+  - id: "ORDER_API"
+    kind: "service"
+  - id: "PAYMENT_FULFILLMENT"
+    kind: "service"
+edges: []

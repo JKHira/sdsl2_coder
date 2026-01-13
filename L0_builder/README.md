@@ -16,6 +16,8 @@ Ready
 - `resolution_profile_lint.py` -> Validate resolution profile structure (policy/resolution_profile.yaml).
 - `resolution_gap_report.py` -> Emit resolution gaps to OUTPUT/resolution_gaps.yaml.
 - `edgeintent_diff.py` -> Intent preview diff generator (stdout unified diff against OUTPUT/intent_preview.sdsl2 only; no auto-apply).
+- `topology_enricher.py` -> Diff-only topology enrichment for @Node summary/io fields.
+- `intent_template_gen.py` -> Generate drafts/intent skeletons from topology.
 
 Planned (not implemented yet)
 - (none)
@@ -88,6 +90,23 @@ python L0_builder/edgeintent_diff.py \
   --project-root /repo
 ```
 
+Topology enricher (diff-only):
+
+```bash
+python L0_builder/topology_enricher.py \
+  --input /repo/sdsl2/topology \
+  --map /repo/drafts/ledger/node_enrich.yaml \
+  --project-root /repo
+```
+
+Intent template generator:
+
+```bash
+python L0_builder/intent_template_gen.py \
+  --input /repo/sdsl2/topology/P1_T_ORCHESTRATION_CORE_L0.sdsl2 \
+  --project-root /repo
+```
+
 Ledger builder:
 
 ```bash
@@ -118,3 +137,5 @@ Notes
 - Ledger outputs should remain under `drafts/ledger/`.
 - Ledger inputs are exclusive: use `--nodes` or `--extract-structures-from` (not both).
 - Placeholders (None/TBD/Opaque) are forbidden in SDSL statements.
+- topology_enricher emits unified diffs only (stdout or `--out`); it does not apply changes.
+- intent_template_gen supports `--dry-run` to print YAML (single input only).

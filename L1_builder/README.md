@@ -18,6 +18,9 @@ Purpose: L1 promotion tooling (Decisions + Evidence -> SSOT patch) and L1 operat
 - `evidence_template_gen.py` -> Generate evidence skeleton from decisions/edges.yaml.
 - `evidence_hash_helper.py` -> Compute/verify content_hash for evidence.
 - `evidence_repair.py` -> Diff-only evidence repair proposal.
+- `decisions_from_intent_gen.py` -> Diff-only decisions/edges.yaml generator from intent.
+- `evidence_fill_gen.py` -> Diff-only content_hash updater for evidence.yaml.
+- `contract_scaffold_gen.py` -> Diff-only contract stub generator for missing declarations.
 - `schema_migration_check.py` -> Detect schema_version major mismatch.
 - `drift_check.py` -> Detect SSOT vs decisions drift.
 - `token_registry_check.py` -> Validate SSOT.* / CONTRACT.* tokens vs registries.
@@ -27,9 +30,10 @@ Purpose: L1 promotion tooling (Decisions + Evidence -> SSOT patch) and L1 operat
 
 ## Notes
 - SSOT lives under sdsl2/ only; never write SSOT directly.
-- Diff outputs must stay under OUTPUT/.
+- Diff outputs should stay under OUTPUT/.
 - Intent input is restricted to drafts/intent/.
 - token_registry_check allows UNRESOLVED#/ by default; use --fail-on-unresolved to hard-fail.
+- Diff-only generators emit unified diffs (stdout or `--out`) and do not apply changes.
 
 ## Usage (examples)
 - Operational gate (policy optional):
@@ -52,6 +56,12 @@ Purpose: L1 promotion tooling (Decisions + Evidence -> SSOT patch) and L1 operat
   - python3 L1_builder/next_actions_gen.py --project-root project_x
 - Promote (diff only; no auto-apply):
   - python3 L1_builder/promote.py --project-root project_x --out OUTPUT/promote.patch
+- Decisions from intent (diff only):
+  - python3 L1_builder/decisions_from_intent_gen.py --input drafts/intent --contract-map drafts/contract_map.yaml --project-root project_x
+- Evidence fill (diff only):
+  - python3 L1_builder/evidence_fill_gen.py --project-root project_x
+- Contract scaffold (diff only):
+  - python3 L1_builder/contract_scaffold_gen.py --decisions-path decisions/edges.yaml --out sdsl2/contract/P1_C_AUTO.sdsl2 --id-prefix P1_C_AUTO --project-root project_x
 
 Non-standard paths (only when needed):
 - Add --allow-nonstandard-path to decisions_lint/evidence_lint/readiness_check/intent_lint/operational_gate.

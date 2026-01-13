@@ -1,0 +1,5 @@
+@File { profile:"topology", id_prefix:"P0_T_ORDER_FLOW_L0", stage:"L0" }
+@Node { id:"EXTERNAL_CLIENT", kind:"service", summary:"User client entrypoint", io:"https:order" }
+@Node { id:"INVENTORY_SERVICE", kind:"service", summary:"Inventory reservation service", io:"http:inventory_api" }
+@Node { id:"ORDER_API", kind:"service", summary:"Order intake and orchestration", io:"http:order_api" }
+@Node { id:"PAYMENT_FULFILLMENT", kind:"service", summary:"Payment and fulfillment service", io:"http:payment_fulfillment_api" }

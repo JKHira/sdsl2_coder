@@ -1,0 +1,21 @@
+schema_version: "1.0"
+provenance:
+  author: "system"
+  reviewed_by: "system"
+  source_link: "docs/order_flow_evidence.md"
+scope:
+  kind: "file"
+  value: "sdsl2/topology/P0_T_ORDER_FLOW_L0.sdsl2"
+edges:
+  - id: "ORDER_TO_INVENTORY_RESERVE"
+    from: "ORDER_API"
+    to: "INVENTORY_SERVICE"
+    direction: "req"
+    contract_refs:
+      - "CONTRACT.RESERVE_INVENTORY"
+  - id: "ORDER_TO_PAYMENT_FULFILL"
+    from: "ORDER_API"
+    to: "PAYMENT_FULFILLMENT"
+    direction: "req"
+    contract_refs:
+      - "CONTRACT.PAY_AND_FULFILL"

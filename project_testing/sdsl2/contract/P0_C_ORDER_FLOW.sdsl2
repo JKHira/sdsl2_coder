@@ -1,0 +1,10 @@
+@File { profile:"contract", id_prefix:"P0_C_ORDER_FLOW" }
+
+@Type { id:"ERROR_CODE" } type ERROR_CODE = "INVENTORY_UNAVAILABLE"|"PAYMENT_FAILED"
+@Type { id:"RETRY_POLICY" } type RETRY_POLICY = "NO_RETRY"|"RETRY_WITH_BACKOFF"
+
+@Function { id:"RESERVE_INVENTORY" } f ReserveInventory() -> s { }
+@Function { id:"PAY_AND_FULFILL" } f PayAndCreateFulfillment() -> s { }
+
+@Rule { id:"AUTHZ_RESERVE_INVENTORY", bind:@Function.RESERVE_INVENTORY, contract:["CONTRACT.RESERVE_INVENTORY"] }
+@Rule { id:"AUTHZ_PAY_AND_FULFILL", bind:@Function.PAY_AND_FULFILL, contract:["CONTRACT.PAY_AND_FULFILL"] }

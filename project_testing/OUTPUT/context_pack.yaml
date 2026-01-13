@@ -1,0 +1,24 @@
+Context Pack
+Header:
+  target: @Node.ORDER_API
+  profile: topology
+  stage: L0
+Nodes:
+  - rel_id: ORDER_API
+    canon_id: P0_T_ORDER_FLOW_L0_ORDER_API
+Edges:
+  []
+Contracts:
+  []
+Authz:
+  []
+Invariants:
+  []
+Open TODO: {}
+---
+Supplementary: provenance
+generator: "L0_builder.context_pack_gen"
+source_rev: "496f615000216066724be8d0ce151ad138af0b35"
+inputs:
+  - "sdsl2/topology/P0_T_ORDER_FLOW_L0.sdsl2"
+  - "input_hash:sha256:787ade2780d78f0a6847391d8851f2892d4004370d5341f94e028722ebca85c3"

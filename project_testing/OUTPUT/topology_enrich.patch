@@ -1,0 +1,6 @@
+--- /Volumes/SSD/Dev_Projects/SDSL2_Coder/project_testing/sdsl2/topology/P0_T_ORDER_FLOW_L0_ENRICH_TEST.sdsl2
++++ /Volumes/SSD/Dev_Projects/SDSL2_Coder/project_testing/sdsl2/topology/P0_T_ORDER_FLOW_L0_ENRICH_TEST.sdsl2
+@@ -1,2 +1,2 @@
+ @File { profile:"topology", id_prefix:"P0_T_ORDER_FLOW_L0_TEST", stage:"L0" }
+-@Node { id:"ORDER_API", kind:"service" }
++@Node { id:"ORDER_API", kind:"service", summary:"Order intake and orchestration", io:"http:order_api"}

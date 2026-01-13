@@ -1,0 +1,4 @@
+addendum:
+  enabled: false
+gates:
+  token_registry: DIAG

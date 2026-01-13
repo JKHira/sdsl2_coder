@@ -1,0 +1,7 @@
+edges:
+  - id: ORDER_TO_INVENTORY_RESERVE
+    contract_refs:
+      - "CONTRACT.RESERVE_INVENTORY"
+  - id: ORDER_TO_PAYMENT_FULFILL
+    contract_refs:
+      - "CONTRACT.PAY_AND_FULFILL"

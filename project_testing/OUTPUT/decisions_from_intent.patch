@@ -1,0 +1,41 @@
+--- /Volumes/SSD/Dev_Projects/SDSL2_Coder/project_testing/decisions/edges.yaml
++++ /Volumes/SSD/Dev_Projects/SDSL2_Coder/project_testing/decisions/edges.yaml
+@@ -1,21 +1,23 @@
+ schema_version: "1.0"
+ provenance:
+-  author: "system"
+-  reviewed_by: "system"
+-  source_link: "docs/order_flow_evidence.md"
++  author: UNSPECIFIED
++  reviewed_by: UNSPECIFIED
++  source_link: "gen:decisions_from_intent_gen_v0_1;rev:496f615000216066724be8d0ce151ad138af0b35;input:sha256:331b0b50bce4f18097cf1dd9e140311f87fe46f8473d4d1e75f3139b07a3730a;link:docs/order_flow_evidence.md"
+ scope:
+-  kind: "file"
+-  value: "sdsl2/topology/P0_T_ORDER_FLOW_L0.sdsl2"
++  kind: file
++  value: sdsl2/topology/P0_T_ORDER_FLOW_L0.sdsl2
+ edges:
+-  - id: "ORDER_TO_INVENTORY_RESERVE"
+-    from: "ORDER_API"
+-    to: "INVENTORY_SERVICE"
+-    direction: "req"
++  -
++    id: ORDER_TO_INVENTORY_RESERVE
++    from: ORDER_API
++    to: INVENTORY_SERVICE
++    direction: req
+     contract_refs:
+-      - "CONTRACT.RESERVE_INVENTORY"
+-  - id: "ORDER_TO_PAYMENT_FULFILL"
+-    from: "ORDER_API"
+-    to: "PAYMENT_FULFILLMENT"
+-    direction: "req"
++      - CONTRACT.RESERVE_INVENTORY
++  -
++    id: ORDER_TO_PAYMENT_FULFILL
++    from: ORDER_API
++    to: PAYMENT_FULFILLMENT
++    direction: req
+     contract_refs:
+-      - "CONTRACT.PAY_AND_FULFILL"
++      - CONTRACT.PAY_AND_FULFILL

@@ -1,0 +1,5 @@
+@File { profile:"topology", id_prefix:"P0_T_ORDER_FLOW_L0", stage:"L0" }
+@Node { id:"EXTERNAL_CLIENT", kind:"service" }
+@Node { id:"INVENTORY_SERVICE", kind:"service" }
+@Node { id:"ORDER_API", kind:"service" }
+@Node { id:"PAYMENT_FULFILLMENT", kind:"service" }

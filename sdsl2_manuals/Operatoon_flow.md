@@ -185,6 +185,12 @@ Promote により、Topology SSOT は以下の変化をします。
 	•	もし @File.stage:"L0" だった場合、Edge 追加と同時に stage が “L1” に更新される
 	•	以後、L1 では @EdgeIntent は SSOT から排除され（Intent YAML に置く）、SSOT は Graph Facts のみを持つ形に整理されます
 
+Diff の適用手順（共通）
+	•	diff-only ツールは unified diff を stdout または --out に出力するだけで、SSOT/decisions を直接書き換えません
+	•	適用前の確認: git apply --check <patch>
+	•	適用: git apply <patch>
+	•	適用後は該当 lint / gate を再実行して整合を確認する
+
 ⸻
 
 3.3 L2：振る舞い（Invariants/Authz）と例外管理まで含めて“運用品質”を完成させる段階

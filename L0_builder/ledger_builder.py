@@ -64,7 +64,7 @@ def _dump_ledger(
 ) -> str:
     lines: list[str] = []
     lines.append("version: topology-ledger-v0.1")
-    lines.append("schema_revision: 1")
+    lines.append(f"schema_revision: {_yaml_quote('1')}")
     lines.append("file_header:")
     lines.append("  profile: topology")
     lines.append(f"  id_prefix: {_yaml_quote(id_prefix)}")
