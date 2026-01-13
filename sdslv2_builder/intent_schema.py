@@ -6,6 +6,7 @@ from typing import Any
 from .errors import Diagnostic, json_pointer
 from .lint import DIRECTION_VOCAB
 from .refs import RELID_RE
+from .schema_versions import INTENT_SCHEMA_VERSION
 
 SCHEMA_VERSION_RE = re.compile(r"^\d+\.\d+$")
 PLACEHOLDERS = {"None", "TBD", "Opaque"}
@@ -116,6 +117,15 @@ def normalize_intent(
             "Invalid schema_version",
             "MAJOR.MINOR",
             str(schema_version),
+            json_pointer("schema_version"),
+        )
+    elif schema_version != INTENT_SCHEMA_VERSION:
+        _diag(
+            diags,
+            "E_INTENT_SCHEMA_VERSION_MISMATCH",
+            "schema_version mismatch",
+            INTENT_SCHEMA_VERSION,
+            schema_version,
             json_pointer("schema_version"),
         )
     _check_placeholder(schema_version, json_pointer("schema_version"), diags)

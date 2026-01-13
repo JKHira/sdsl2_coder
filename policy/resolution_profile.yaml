@@ -1,0 +1,32 @@
+schema_version: "1.0"
+node:
+  required_fields:
+    - id
+    - kind
+    - summary
+    - io
+  kind_vocab:
+    - component
+    - service
+    - job
+    - db
+    - queue
+    - external
+    - library
+  summary:
+    max_len: 120
+  io:
+    pattern: "^(https?|grpc|queue|topic|db|file):.+"
+edge:
+  required_fields:
+    - from
+    - to
+    - direction
+    - channel
+    - contract_refs
+  channel_vocab:
+    - sync_call
+    - async_event
+    - data_read
+    - data_write
+    - file_transfer

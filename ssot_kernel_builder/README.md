@@ -24,5 +24,7 @@ Non-scope: TypeScript compilation, runtime codegen, or SDSL2 parsing.
 
 ## Constraints
 - ssot_definitions.ts MUST contain a JSON-compatible SSOT_DEFINITIONS object (double quotes, no trailing commas).
+- SSOT token keys MUST match kernel.token_rules.ssot_ref_pattern in ssot_definitions.ts.
+- registry_map paths are derived from kernel.distribution_boundary.definitions_path.
 - Outputs are written only under OUTPUT/ssot and must not be symlinks.
 - ssot_definitions.json must be canonical JSON (sorted keys, LF, trailing newline).

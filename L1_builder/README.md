@@ -12,6 +12,8 @@ Purpose: L1 promotion tooling (Decisions + Evidence -> SSOT patch) and L1 operat
 - `contract_promote.py` -> Contract diff only; no auto-apply.
 - `contract_resolution_lint.py` -> Contract resolution lint (skeleton + bind/dep checks).
 - `contract_token_bind_check.py` -> Validate contract_refs tokens vs contract SSOT.
+- `contract_rule_coverage_check.py` -> Check decisions contract_refs coverage and rule naming rules.
+- `contract_error_model_lint.py` -> Validate ERROR_CODE / RETRY_POLICY type alias formats.
 - `intent_lint.py` -> Validate drafts/intent/*.yaml.
 - `evidence_template_gen.py` -> Generate evidence skeleton from decisions/edges.yaml.
 - `evidence_hash_helper.py` -> Compute/verify content_hash for evidence.

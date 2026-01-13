@@ -162,6 +162,8 @@ def main() -> int:
         print(f"E_NEXT_ACTIONS_WRITE_FAILED:{exc}", file=sys.stderr)
         return 2
 
+    if errors:
+        return 2
     return 0
 
 

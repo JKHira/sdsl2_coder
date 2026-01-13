@@ -161,6 +161,24 @@ def _parse_edges(annotations: list[tuple[str, dict[str, str], int, int]]) -> lis
     return edges
 
 
+def _missing_contract_refs(annotations: list[tuple[str, dict[str, str], int, int]]) -> list[tuple[int, str | None]]:
+    missing: list[tuple[int, str | None]] = []
+    for kind, meta, idx, _ in annotations:
+        if kind != "Edge":
+            continue
+        if meta is None:
+            missing.append((idx, None))
+            continue
+        raw = meta.get("contract_refs")
+        if raw is None:
+            missing.append((idx, _strip_quotes(meta.get("id"))))
+            continue
+        items = _split_list_items(raw)
+        if not items:
+            missing.append((idx, _strip_quotes(meta.get("id"))))
+    return missing
+
+
 def _edge_tuple(edge_id: str, from_id: str, to_id: str, direction: str, contract_refs: list[str]) -> tuple[str, str, str, str, tuple[str, ...]]:
     return (edge_id, from_id, to_id, direction, tuple(contract_refs))
 
@@ -291,6 +309,15 @@ def main() -> int:
         annotations = _parse_annotations(lines)
     except ValueError as exc:
         print(str(exc), file=sys.stderr)
+        return 2
+
+    missing_refs = _missing_contract_refs(annotations)
+    if missing_refs:
+        for idx, edge_id in missing_refs:
+            if edge_id:
+                print(f"E_DRIFT_CONTRACT_REFS_MISSING: line {idx + 1} id {edge_id}", file=sys.stderr)
+            else:
+                print(f"E_DRIFT_CONTRACT_REFS_MISSING: line {idx + 1}", file=sys.stderr)
         return 2
     edges = _parse_edges(annotations)
 

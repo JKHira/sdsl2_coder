@@ -163,6 +163,9 @@ def main() -> int:
         nodes_path = _resolve_path(project_root, args.nodes)
         if not _ensure_input_under(nodes_path, project_root):
             return 2
+        if nodes_path.is_symlink() or _has_symlink_parent(nodes_path, project_root):
+            print("E_LEDGER_BUILDER_NODES_SYMLINK", file=sys.stderr)
+            return 2
         if not nodes_path.exists():
             print("E_LEDGER_BUILDER_NODES_NOT_FOUND", file=sys.stderr)
             return 2
@@ -179,6 +182,9 @@ def main() -> int:
             return 2
         source_path = _resolve_path(project_root, args.extract_structures_from)
         if not _ensure_input_under(source_path, project_root):
+            return 2
+        if source_path.is_symlink() or _has_symlink_parent(source_path, project_root):
+            print("E_LEDGER_BUILDER_SOURCE_SYMLINK", file=sys.stderr)
             return 2
         if not source_path.exists():
             print("E_LEDGER_BUILDER_SOURCE_NOT_FOUND", file=sys.stderr)

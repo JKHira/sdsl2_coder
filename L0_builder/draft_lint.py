@@ -50,7 +50,7 @@ def main() -> int:
 
     project_root = Path(args.project_root).resolve() if args.project_root else ROOT
     drafts_root = project_root / "drafts"
-    if drafts_root.is_symlink():
+    if drafts_root.is_symlink() or _has_symlink_parent(drafts_root, project_root):
         print("E_DRAFT_DRAFTS_ROOT_SYMLINK", file=sys.stderr)
         return 2
     path = Path(args.input)

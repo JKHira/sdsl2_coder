@@ -127,7 +127,11 @@ def main() -> int:
         return 2
 
     out_path = _resolve_path(project_root, args.out)
-    output_root = (project_root / "OUTPUT").absolute()
+    output_root = project_root / "OUTPUT"
+    if output_root.is_symlink() or _has_symlink_parent(output_root, project_root):
+        print("E_GAP_REPORT_OUTPUT_SYMLINK", file=sys.stderr)
+        return 2
+    output_root = output_root.resolve()
     try:
         out_path.resolve().relative_to(output_root)
     except ValueError:

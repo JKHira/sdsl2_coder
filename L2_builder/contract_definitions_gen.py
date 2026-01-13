@@ -58,6 +58,8 @@ def _ensure_inside(project_root: Path, path: Path, code: str) -> None:
 
 
 def _has_symlink_parent(path: Path, stop: Path) -> bool:
+    if stop.is_symlink():
+        return True
     for parent in [path, *path.parents]:
         if parent == stop:
             break
@@ -393,6 +395,14 @@ def main() -> int:
     args = ap.parse_args()
 
     project_root = Path(args.project_root).resolve() if args.project_root else ROOT
+    output_root = project_root / "OUTPUT"
+    output_ssot = output_root / "ssot"
+    if output_root.is_symlink() or _has_symlink_parent(output_root, project_root):
+        print("E_CONTRACT_DEF_OUTPUT_SYMLINK", file=sys.stderr)
+        return 2
+    if output_ssot.is_symlink() or _has_symlink_parent(output_ssot, project_root):
+        print("E_CONTRACT_DEF_OUTPUT_SYMLINK", file=sys.stderr)
+        return 2
     edges_path = (project_root / args.edges).resolve()
     contracts_path = (project_root / args.contracts).resolve()
     out_definitions = (project_root / args.out_definitions).resolve()

@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import subprocess
 import sys
 from pathlib import Path
@@ -12,6 +13,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from L2_builder.common import ROOT as REPO_ROOT, ensure_inside, has_symlink_parent, resolve_path
+from sdslv2_builder.errors import Diagnostic, json_pointer
 from sdslv2_builder.input_hash import compute_input_hash
 from sdslv2_builder.io_atomic import atomic_write_text
 from sdslv2_builder.lint import _capture_metadata, _parse_metadata_pairs
@@ -31,16 +33,62 @@ def _git_rev(project_root: Path) -> str:
         raise ValueError("E_SKELETON_SOURCE_REV_MISSING")
     return result.stdout.strip()
 
+def _diag(
+    diags: list[Diagnostic],
+    code: str,
+    message: str,
+    expected: str,
+    got: str,
+    path: str,
+) -> None:
+    diags.append(Diagnostic(code=code, message=message, expected=expected, got=got, path=path))
 
-def _collect_ids(lines: list[str], kind: str) -> list[str]:
+
+def _print_diags(diags: list[Diagnostic]) -> None:
+    payload = [d.to_dict() for d in diags]
+    print(json.dumps(payload, ensure_ascii=False, indent=2), file=sys.stderr)
+
+
+def _find_metadata_brace(lines: list[str], start_idx: int) -> tuple[int, int] | None:
+    brace_idx = lines[start_idx].find("{")
+    if brace_idx != -1:
+        return start_idx, brace_idx
+    idx = start_idx + 1
+    while idx < len(lines):
+        stripped = lines[idx].strip()
+        if stripped == "" or stripped.startswith("//"):
+            idx += 1
+            continue
+        if stripped.startswith("@"):
+            return None
+        brace_idx = lines[idx].find("{")
+        if brace_idx == -1:
+            return None
+        return idx, brace_idx
+    return None
+
+
+def _collect_ids(lines: list[str], kind: str, diags: list[Diagnostic]) -> list[str]:
     ids: list[str] = []
     for idx, line in enumerate(lines):
         if not line.lstrip().startswith(f"@{kind}"):
             continue
-        brace_idx = line.find("{")
-        if brace_idx == -1:
+        brace = _find_metadata_brace(lines, idx)
+        if brace is None:
             continue
-        meta, _ = _capture_metadata(lines, idx, brace_idx)
+        meta_idx, brace_idx = brace
+        try:
+            meta, _ = _capture_metadata(lines, meta_idx, brace_idx)
+        except Exception as exc:
+            _diag(
+                diags,
+                "E_SKELETON_METADATA_PARSE_FAILED",
+                "metadata parse failed",
+                "valid @Kind { ... } metadata",
+                str(exc),
+                json_pointer("annotations", str(meta_idx)),
+            )
+            continue
         pairs = _parse_metadata_pairs(meta)
         for key, value in pairs:
             if key == "id":
@@ -61,6 +109,10 @@ def main() -> int:
     args = ap.parse_args()
 
     project_root = Path(args.project_root).resolve()
+    output_root = project_root / "OUTPUT"
+    if has_symlink_parent(output_root, project_root) or output_root.is_symlink():
+        print("E_SKELETON_OUTPUT_SYMLINK", file=sys.stderr)
+        return 2
     out_path = resolve_path(project_root, args.out)
     expected = (project_root / DEFAULT_OUT).resolve()
 
@@ -120,11 +172,26 @@ def main() -> int:
 
     structures: set[str] = set()
     rules: set[str] = set()
+    diags: list[Diagnostic] = []
     for path in contract_files:
-        text = path.read_text(encoding="utf-8")
+        try:
+            text = path.read_text(encoding="utf-8")
+        except (OSError, UnicodeDecodeError) as exc:
+            _diag(
+                diags,
+                "E_SKELETON_READ_FAILED",
+                "contract file read failed",
+                "readable UTF-8 file",
+                str(exc),
+                json_pointer("inputs", path.as_posix()),
+            )
+            continue
         lines = text.splitlines()
-        structures.update(_collect_ids(lines, "Structure"))
-        rules.update(_collect_ids(lines, "Rule"))
+        structures.update(_collect_ids(lines, "Structure", diags))
+        rules.update(_collect_ids(lines, "Rule", diags))
+    if diags:
+        _print_diags(diags)
+        return 2
 
     payload = {
         "schema_version": "1.0",

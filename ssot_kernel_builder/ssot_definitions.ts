@@ -22,6 +22,37 @@ export const SSOT_DEFINITIONS = {
       "definitions_path": "OUTPUT/ssot/ssot_definitions.json",
       "registry_map_path": "OUTPUT/ssot/ssot_registry_map.json",
       "registry_path": "OUTPUT/ssot/ssot_registry.json"
+    },
+    "required_artifacts": {
+      "ssot_registry": {
+        "path": "OUTPUT/ssot/ssot_registry.json",
+        "schema_version": "1.0",
+        "schema_ref": "ssot_kernel_builder/ssot_definitions.ts#kernel.registry_schema"
+      },
+      "decisions_edges": {
+        "path": "decisions/edges.yaml",
+        "schema_version": "1.0",
+        "schema_ref": "sdsl2_manuals/ope_addendum/SDSL2_Decisions_Spec.md"
+      },
+      "decisions_contracts": {
+        "path": "decisions/contracts.yaml",
+        "schema_version": "1.0",
+        "schema_ref": "sdsl2_manuals/ope_addendum/SDSL2_Decisions_Spec.md"
+      },
+      "evidence_map": {
+        "path": "decisions/evidence.yaml",
+        "schema_version": "1.0",
+        "schema_ref": "sdsl2_manuals/ope_addendum/SDSL2_Decision_Evidence_Spec.md"
+      },
+      "topology_ledger": {
+        "path": "drafts/ledger/topology_ledger.yaml",
+        "schema_version": "topology-ledger-v0.1",
+        "schema_ref": "coder_planning/ledger_format/topology_ledger_v0_1.md"
+      }
+    },
+    "determinism": {
+      "input_hash_spec": "sdsl2_manuals/ope_addendum/SDSL2_InputHash_Spec.md",
+      "serialization_spec": "sdsl2_manuals/ope_addendum/SDSL2_ContextPack_BundleDoc_Spec.md"
     }
   },
   "tokens": {
@@ -271,7 +302,7 @@ export const SSOT_DEFINITIONS = {
       "summary": "Control-plane command signer defaults",
       "value": {
         "algorithm": "HMAC-SHA256",
-        "payload": "json.dumps(signable, sort_keys=true, default=str).encode('utf-8')",
+        "payload": "json.dumps(signable, sort_keys=True, default=str).encode('utf-8')",
         "exclude_fields": ["signature"]
       }
     },

@@ -64,27 +64,26 @@ def _split_context_and_supplementary(text: str) -> tuple[str, list[str]]:
 
 def _parse_supplementary_blocks(lines: list[str]) -> list[tuple[str, list[str]]]:
     blocks: list[tuple[str, list[str]]] = []
+    headers: list[tuple[int, str]] = []
     idx = 0
-    while idx < len(lines):
-        line = lines[idx]
-        if line.strip() == "":
-            idx += 1
+    while idx + 1 < len(lines):
+        if lines[idx].strip() == "---" and lines[idx + 1].strip().startswith("Supplementary: "):
+            key = lines[idx + 1].strip().split("Supplementary: ", 1)[1].strip()
+            if key not in SUPPLEMENTARY_ORDER:
+                raise ValueError(f"E_BUNDLE_DOC_SUPPLEMENTARY_KEY_INVALID:{key}")
+            headers.append((idx, key))
+            idx += 2
             continue
-        if line.strip() != "---":
+        idx += 1
+    if not headers:
+        return blocks
+    first_header = headers[0][0]
+    for line in lines[:first_header]:
+        if line.strip() != "":
             raise ValueError("E_BUNDLE_DOC_SUPPLEMENTARY_DELIMITER_INVALID")
-        if idx + 1 >= len(lines):
-            raise ValueError("E_BUNDLE_DOC_SUPPLEMENTARY_HEADER_MISSING")
-        header = lines[idx + 1].strip()
-        if not header.startswith("Supplementary: "):
-            raise ValueError("E_BUNDLE_DOC_SUPPLEMENTARY_HEADER_INVALID")
-        key = header.split("Supplementary: ", 1)[1].strip()
-        if key not in SUPPLEMENTARY_ORDER:
-            raise ValueError(f"E_BUNDLE_DOC_SUPPLEMENTARY_KEY_INVALID:{key}")
-        start = idx
-        idx += 2
-        while idx < len(lines) and lines[idx].strip() != "---":
-            idx += 1
-        block = lines[start:idx]
+    for i, (start, key) in enumerate(headers):
+        end = headers[i + 1][0] if i + 1 < len(headers) else len(lines)
+        block = lines[start:end]
         if any(existing_key == key for existing_key, _ in blocks):
             raise ValueError(f"E_BUNDLE_DOC_SUPPLEMENTARY_DUPLICATE:{key}")
         blocks.append((key, block))
@@ -155,6 +154,10 @@ def main() -> int:
     args = ap.parse_args()
 
     project_root = Path(args.project_root).resolve()
+    output_root = project_root / "OUTPUT"
+    if has_symlink_parent(output_root, project_root) or output_root.is_symlink():
+        print("E_BUNDLE_DOC_OUTPUT_SYMLINK", file=sys.stderr)
+        return 2
     context_path = resolve_path(project_root, args.context_pack)
     out_path = resolve_path(project_root, args.out)
 
@@ -197,7 +200,7 @@ def main() -> int:
         print("E_BUNDLE_DOC_OUTPUT_PARENT_NOT_DIR", file=sys.stderr)
         return 2
 
-    output_root = (project_root / "OUTPUT").resolve()
+    output_root = output_root.resolve()
 
     if decisions_needed_path.exists():
         try:
@@ -260,6 +263,8 @@ def main() -> int:
         print("E_BUNDLE_DOC_DECISIONS_FLAG_CONFLICT", file=sys.stderr)
         return 2
     include_decisions = bool(args.include_decisions)
+    if args.no_decisions:
+        include_decisions = False
     try:
         result = compute_input_hash(
             project_root,

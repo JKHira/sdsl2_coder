@@ -18,6 +18,9 @@ INTERNAL_REF_KINDS = {
     "Rule",
     "Node",
     "Edge",
+    "EdgeIntent",
+    "Flow",
+    "Terminal",
 }
 INTERNAL_REF_RE = re.compile(r"^@(?P<kind>[A-Za-z_][A-Za-z0-9_]*)\.(?P<id>[A-Z][A-Z0-9_]{2,63})$")
 

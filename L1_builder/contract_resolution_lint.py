@@ -14,9 +14,19 @@ sys.path.insert(0, str(ROOT))
 from sdslv2_builder.errors import Diagnostic, json_pointer
 from sdslv2_builder.lint import _capture_metadata, _parse_metadata_pairs
 from sdslv2_builder.refs import RELID_RE, parse_contract_ref, parse_internal_ref
+from sdslv2_builder.op_yaml import load_yaml
 
 
 DECL_KINDS = {"Structure", "Interface", "Function", "Const", "Type"}
+REQUIRED_DECL_KINDS = {"Structure", "Interface", "Function", "Const", "Type", "Rule"}
+PROFILE_REL_PATH = Path("policy") / "contract_resolution_profile.yaml"
+MISSING_CODES = {
+    "E_CONTRACT_RES_API_MISSING",
+    "E_CONTRACT_RES_TYPES_MISSING",
+    "E_CONTRACT_RES_RULE_MISSING",
+    "E_CONTRACT_RES_REQUIRED_DECL_MISSING",
+    "E_CONTRACT_RES_REQUIRED_RULE_PREFIX_MISSING",
+}
 
 
 def _strip_quotes(value: str | None) -> str | None:
@@ -35,6 +45,45 @@ def _has_symlink_parent(path: Path, stop: Path) -> bool:
         if parent.is_symlink():
             return True
     return False
+
+
+def _load_contract_profile(project_root: Path, diags: list[Diagnostic]) -> dict[str, object] | None:
+    path = (project_root / PROFILE_REL_PATH).resolve()
+    if not path.exists():
+        return None
+    if path.is_symlink() or _has_symlink_parent(path, project_root):
+        _emit_diag(
+            diags,
+            "E_CONTRACT_RES_PROFILE_SYMLINK",
+            "Contract resolution profile must not be symlink",
+            "non-symlink",
+            str(path),
+            json_pointer("profile"),
+        )
+        return None
+    try:
+        data = load_yaml(path)
+    except Exception as exc:
+        _emit_diag(
+            diags,
+            "E_CONTRACT_RES_PROFILE_PARSE_FAILED",
+            "Contract resolution profile parse failed",
+            "valid YAML",
+            str(exc),
+            json_pointer("profile"),
+        )
+        return None
+    if not isinstance(data, dict):
+        _emit_diag(
+            diags,
+            "E_CONTRACT_RES_PROFILE_INVALID",
+            "Contract resolution profile must be object",
+            "object",
+            type(data).__name__,
+            json_pointer("profile"),
+        )
+        return None
+    return data
 
 
 def _ensure_under_root(path: Path, root: Path, code: str) -> bool:
@@ -144,7 +193,7 @@ def _emit_diag(diags: list[Diagnostic], code: str, message: str, expected: str, 
     diags.append(Diagnostic(code=code, message=message, expected=expected, got=got, path=path))
 
 
-def _check_file(path: Path, diags: list[Diagnostic]) -> None:
+def _check_file(path: Path, diags: list[Diagnostic], profile: dict[str, object] | None) -> None:
     try:
         lines = path.read_text(encoding="utf-8").splitlines()
     except (OSError, UnicodeDecodeError) as exc:
@@ -161,6 +210,7 @@ def _check_file(path: Path, diags: list[Diagnostic]) -> None:
 
     decl_counts = {kind: 0 for kind in DECL_KINDS}
     rule_count = 0
+    rule_ids: list[str] = []
     declared_ids: set[tuple[str, str]] = set()
     file_profile: str | None = None
     file_id_prefix: str | None = None
@@ -232,6 +282,10 @@ def _check_file(path: Path, diags: list[Diagnostic]) -> None:
 
         if kind == "Rule":
             rule_count += 1
+            rule_id = _strip_quotes(meta.get("id"))
+            if rule_id and RELID_RE.match(rule_id):
+                rule_ids.append(rule_id)
+                declared_ids.add(("Rule", rule_id))
 
     for kind, meta, idx, _, dupes in annotations:
         if meta is None or dupes:
@@ -409,6 +463,85 @@ def _check_file(path: Path, diags: list[Diagnostic]) -> None:
         )
     _check_placeholders(annotations, diags)
 
+    if profile:
+        required_decls = profile.get("required_declarations")
+        if required_decls is not None:
+            if not isinstance(required_decls, list):
+                _emit_diag(
+                    diags,
+                    "E_CONTRACT_RES_PROFILE_INVALID",
+                    "required_declarations must be list",
+                    "list",
+                    str(required_decls),
+                    json_pointer("profile", "required_declarations"),
+                )
+            else:
+                for idx, item in enumerate(required_decls):
+                    if not isinstance(item, dict):
+                        _emit_diag(
+                            diags,
+                            "E_CONTRACT_RES_PROFILE_INVALID",
+                            "required_declarations item must be object",
+                            "object",
+                            str(item),
+                            json_pointer("profile", "required_declarations", str(idx)),
+                        )
+                        continue
+                    kind = item.get("kind")
+                    rel_id = item.get("id")
+                    if kind not in REQUIRED_DECL_KINDS or not isinstance(rel_id, str) or not rel_id.strip():
+                        _emit_diag(
+                            diags,
+                            "E_CONTRACT_RES_PROFILE_INVALID",
+                            "required_declarations item invalid",
+                            "kind+id",
+                            f"{kind}:{rel_id}",
+                            json_pointer("profile", "required_declarations", str(idx)),
+                        )
+                        continue
+                    if (kind, rel_id) not in declared_ids:
+                        _emit_diag(
+                            diags,
+                            "E_CONTRACT_RES_REQUIRED_DECL_MISSING",
+                            "Required declaration missing",
+                            f"{kind}.{rel_id}",
+                            "missing",
+                            json_pointer("required_declarations", str(idx)),
+                        )
+
+        required_prefixes = profile.get("required_rule_prefixes")
+        if required_prefixes is not None:
+            if not isinstance(required_prefixes, list):
+                _emit_diag(
+                    diags,
+                    "E_CONTRACT_RES_PROFILE_INVALID",
+                    "required_rule_prefixes must be list",
+                    "list",
+                    str(required_prefixes),
+                    json_pointer("profile", "required_rule_prefixes"),
+                )
+            else:
+                for idx, prefix in enumerate(required_prefixes):
+                    if not isinstance(prefix, str) or not prefix:
+                        _emit_diag(
+                            diags,
+                            "E_CONTRACT_RES_PROFILE_INVALID",
+                            "required_rule_prefixes item must be string",
+                            "string",
+                            str(prefix),
+                            json_pointer("profile", "required_rule_prefixes", str(idx)),
+                        )
+                        continue
+                    if not any(rule_id.startswith(prefix) for rule_id in rule_ids):
+                        _emit_diag(
+                            diags,
+                            "E_CONTRACT_RES_REQUIRED_RULE_PREFIX_MISSING",
+                            "Required rule prefix missing",
+                            prefix,
+                            "missing",
+                            json_pointer("required_rule_prefixes", str(idx)),
+                        )
+
 
 def main() -> int:
     ap = argparse.ArgumentParser()
@@ -431,12 +564,19 @@ def main() -> int:
         return 2
 
     diags: list[Diagnostic] = []
+    profile = _load_contract_profile(project_root, diags)
+    if diags:
+        _print_diags(diags)
+        return 2
     for path in files:
-        _check_file(path, diags)
+        _check_file(path, diags, profile)
 
     if diags:
         _print_diags(diags)
-        return 2 if args.fail_on_missing else 0
+        if args.fail_on_missing:
+            return 2
+        hard_diags = [diag for diag in diags if diag.code not in MISSING_CODES]
+        return 2 if hard_diags else 0
     return 0
 
 

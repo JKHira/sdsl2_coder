@@ -13,7 +13,7 @@ sys.path.insert(0, str(ROOT))
 
 from sdslv2_builder.errors import Diagnostic, json_pointer
 from sdslv2_builder.intent_schema import normalize_intent
-from sdslv2_builder.op_yaml import load_yaml
+from sdslv2_builder.op_yaml import load_yaml_with_duplicates
 
 
 def _diag(diags: list[Diagnostic], code: str, message: str, expected: str, got: str, path: str) -> None:
@@ -111,7 +111,7 @@ def _collect_inputs(
 def _lint_file(path: Path) -> tuple[dict[str, object] | None, list[Diagnostic]]:
     diags: list[Diagnostic] = []
     try:
-        data = load_yaml(path)
+        data, duplicates = load_yaml_with_duplicates(path, allow_duplicates=True)
     except Exception as exc:
         _diag(
             diags,
@@ -121,6 +121,17 @@ def _lint_file(path: Path) -> tuple[dict[str, object] | None, list[Diagnostic]]:
             str(exc),
             json_pointer(),
         )
+        return None, diags
+    if duplicates:
+        for dup in duplicates:
+            _diag(
+                diags,
+                "E_INTENT_DUPLICATE_KEY",
+                "duplicate key in intent",
+                "unique key",
+                dup.key,
+                dup.path,
+            )
         return None, diags
     if not isinstance(data, dict):
         _diag(
@@ -192,10 +203,13 @@ def main() -> int:
         scope = data.get("scope", {})
         scope_kind = scope.get("kind", "")
         scope_value = scope.get("value", "")
-        intents = data.get("edge_intents_proposed", [])
-        if not isinstance(intents, list):
-            continue
-        for item in intents:
+        intent_items = data.get("edge_intents_proposed", [])
+        if not isinstance(intent_items, list):
+            intent_items = []
+        intents = data.get("intents", [])
+        if isinstance(intents, list):
+            intent_items = intent_items + intents
+        for item in intent_items:
             if not isinstance(item, dict):
                 continue
             intent_id = item.get("id")

@@ -493,7 +493,7 @@ def _load_registry_tokens(
     if not path.exists():
         _diag(diags, missing_code, "registry file not found", "existing file", str(path), json_pointer())
         return set(), []
-    if path.is_symlink():
+    if path.is_symlink() or _has_symlink_parent(path, project_root):
         _diag(diags, "E_TOKEN_REGISTRY_SYMLINK", "registry file is symlink", "non-symlink", str(path), json_pointer())
         return set(), []
     data = load_yaml(path)

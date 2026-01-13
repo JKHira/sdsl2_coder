@@ -1,0 +1,27 @@
+schema_version: "1.0"
+provenance:
+  author: "codex"
+  reviewed_by: "owner"
+  source_link: "docs/order_flow_spec.md"
+scope:
+  kind: "file"
+  value: "sdsl2/topology/P0_T_ORDER_FLOW_L0.sdsl2"
+edges:
+  - id: EDGE_INTENT_01
+    from: EXTERNAL_CLIENT
+    to: ORDER_API
+    direction: call
+    contract_refs:
+      - CONTRACT.SubmitOrder
+  - id: EDGE_INTENT_02
+    from: ORDER_API
+    to: INVENTORY_SERVICE
+    direction: call
+    contract_refs:
+      - CONTRACT.ReserveInventory
+  - id: EDGE_INTENT_03
+    from: ORDER_API
+    to: PAYMENT_FULFILLMENT
+    direction: call
+    contract_refs:
+      - CONTRACT.PayAndCreateFulfillment

@@ -197,10 +197,11 @@ def _format_edge_lines(edge: dict[str, object]) -> list[str]:
 
 
 def _update_file_stage(lines: list[str], start: int, end: int, stage_value: str) -> None:
+    stage_pattern = re.compile(r'stage\s*(?::\s*)?"[^"]*"')
     if start == end:
         line = lines[start]
-        if "stage" in line:
-            lines[start] = re.sub(r'stage\s*:\s*"[^"]*"', f'stage:"{stage_value}"', line)
+        if stage_pattern.search(line):
+            lines[start] = stage_pattern.sub(f'stage:"{stage_value}"', line)
             return
         if "}" in line:
             lines[start] = line.replace("}", f', stage:"{stage_value}" }}', 1)
@@ -208,15 +209,11 @@ def _update_file_stage(lines: list[str], start: int, end: int, stage_value: str)
 
     stage_line = None
     for idx in range(start, end + 1):
-        if "stage" in lines[idx]:
+        if stage_pattern.search(lines[idx]):
             stage_line = idx
             break
     if stage_line is not None:
-        lines[stage_line] = re.sub(
-            r'stage\s*:\s*"[^"]*"',
-            f'stage:"{stage_value}"',
-            lines[stage_line],
-        )
+        lines[stage_line] = stage_pattern.sub(f'stage:"{stage_value}"', lines[stage_line])
         return
     for idx in range(end, start - 1, -1):
         if "}" in lines[idx]:

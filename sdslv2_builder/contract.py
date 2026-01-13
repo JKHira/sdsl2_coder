@@ -323,7 +323,7 @@ class ContractBuilder:
                     path=json_pointer("dep", "to"),
                 )
             )
-        to_norm = to.to_string() if isinstance(to, InternalRef) else to.to_string()
+        to_norm = to.to_string()
         payload = jcs_dumps({"from": from_ref.to_string(), "to": to_norm}).encode("utf-8")
         dep_id = f"DEP_{from_ref.rel_id}_{hashlib.sha256(payload).hexdigest()[:12].upper()}"
         self._deps.append(
@@ -356,7 +356,7 @@ class ContractBuilder:
                     path=json_pointer("rule", "bind"),
                 )
             )
-        bind_ref = _require_internal_ref(bind, json_pointer("rule", "bind"), required=False)
+        bind_ref = _require_internal_ref(bind, json_pointer("rule", "bind"), required=True)
         self._rules.append(
             Rule(
                 rel_id=rel_id,

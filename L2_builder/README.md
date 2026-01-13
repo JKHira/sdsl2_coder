@@ -11,6 +11,7 @@ Non-scope: Auto-apply, migrations, or any SSOT edits (diff-only only where speci
 - `exception_lint.py`: L2 exception file validator (policy/exceptions.yaml).
 - `conformance_check.py`: Validates skeleton matches current contract SSOT.
 - `freshness_check.py`: Verifies bundle_doc provenance input_hash/source_rev.
+- `ssot_kernel_coverage_check.py`: Validate SSOT kernel coverage against policy/ssot_kernel_profile.yaml.
 - `ssot_kernel_lint.py`: SSOT kernel lint (publish-time).
 - `ssot_registry_consistency_check.py`: Validate registry/SSOT consistency (publish-time).
 - `token_registry_gen.py`: Generate OUTPUT/ssot/ssot_registry.json and contract_registry.json.
@@ -30,6 +31,7 @@ Non-scope: Auto-apply, migrations, or any SSOT edits (diff-only only where speci
 - Bundle Doc: `python3 L2_builder/bundle_doc_gen.py --project-root /repo`
 - Implementation skeleton: `python3 L2_builder/implementation_skeleton_gen.py --project-root /repo`
 - Registries: `python3 L2_builder/token_registry_gen.py --project-root /repo`
+- SSOT kernel coverage: `python3 L2_builder/ssot_kernel_coverage_check.py --project-root /repo`
 
 ## Notes
 - Bundle Doc provenance uses Supplementary Section "provenance" and appends
@@ -39,6 +41,7 @@ Non-scope: Auto-apply, migrations, or any SSOT edits (diff-only only where speci
 - l2_gate_runner.py requires --today (YYYY-MM-DD).
 - ssot_kernel_lint.py reads OUTPUT/ssot/ssot_definitions.json; use --allow-missing for pre-publish.
 - l2_gate_runner --publish expects OUTPUT/ssot/ssot_definitions.json and OUTPUT/ssot/ssot_registry.json to exist.
+- ssot_kernel_coverage_check.py requires policy/ssot_kernel_profile.yaml to exist.
 - token_registry_gen accepts optional map inputs and can emit UNRESOLVED#/ entries.
 - ssot_definitions.json and ssot_registry_map.json are produced by ssot_kernel_builder/build_ssot_definitions.py.
 - l2_gate_runner uses --publish to run ssot_kernel_lint, ssot_registry_consistency_check, conformance_check, and freshness_check. 

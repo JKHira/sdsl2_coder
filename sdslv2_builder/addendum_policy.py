@@ -5,13 +5,14 @@ from pathlib import Path
 from typing import Any
 
 from .errors import Diagnostic, json_pointer
-from .ledger import load_ledger
+from .op_yaml import load_yaml_with_duplicates
 
 
 @dataclass(frozen=True)
 class PolicyResult:
     policy: dict[str, Any]
     diagnostics: list[Diagnostic]
+    loaded: bool
 
 
 def _diag(code: str, message: str, expected: str, got: str, path: str) -> Diagnostic:
@@ -44,7 +45,7 @@ def load_addendum_policy(policy_path: Path | None, repo_root: Path) -> PolicyRes
                     json_pointer("policy_path"),
                 )
             )
-            return PolicyResult(policy=_default_policy(), diagnostics=diagnostics)
+            return PolicyResult(policy=_default_policy(), diagnostics=diagnostics, loaded=False)
         return _load_policy_file(policy_path, diagnostics)
 
     candidates = _find_default_policy(repo_root)
@@ -58,7 +59,7 @@ def load_addendum_policy(policy_path: Path | None, repo_root: Path) -> PolicyRes
                 json_pointer("policy_path"),
             )
         )
-        return PolicyResult(policy=_default_policy(), diagnostics=diagnostics)
+        return PolicyResult(policy=_default_policy(), diagnostics=diagnostics, loaded=False)
     if not candidates:
         diagnostics.append(
             _diag(
@@ -69,13 +70,13 @@ def load_addendum_policy(policy_path: Path | None, repo_root: Path) -> PolicyRes
                 json_pointer("policy_path"),
             )
         )
-        return PolicyResult(policy=_default_policy(), diagnostics=diagnostics)
+        return PolicyResult(policy=_default_policy(), diagnostics=diagnostics, loaded=False)
     return _load_policy_file(candidates[0], diagnostics)
 
 
 def _load_policy_file(path: Path, diagnostics: list[Diagnostic]) -> PolicyResult:
     try:
-        data = load_ledger(path)
+        data, duplicates = load_yaml_with_duplicates(path, allow_duplicates=True)
     except Exception as exc:  # pragma: no cover - defensive
         diagnostics.append(
             _diag(
@@ -86,7 +87,19 @@ def _load_policy_file(path: Path, diagnostics: list[Diagnostic]) -> PolicyResult
                 json_pointer("policy_path"),
             )
         )
-        return PolicyResult(policy=_default_policy(), diagnostics=diagnostics)
+        return PolicyResult(policy=_default_policy(), diagnostics=diagnostics, loaded=False)
+    if duplicates:
+        for dup in duplicates:
+            diagnostics.append(
+                _diag(
+                    "ADD_POLICY_DUPLICATE_KEY",
+                    "duplicate key in policy",
+                    "unique key",
+                    dup.key,
+                    dup.path,
+                )
+            )
+        return PolicyResult(policy=_default_policy(), diagnostics=diagnostics, loaded=False)
 
     if not isinstance(data, dict):
         diagnostics.append(
@@ -98,6 +111,6 @@ def _load_policy_file(path: Path, diagnostics: list[Diagnostic]) -> PolicyResult
                 json_pointer(),
             )
         )
-        return PolicyResult(policy=_default_policy(), diagnostics=diagnostics)
+        return PolicyResult(policy=_default_policy(), diagnostics=diagnostics, loaded=False)
 
-    return PolicyResult(policy=data, diagnostics=diagnostics)
+    return PolicyResult(policy=data, diagnostics=diagnostics, loaded=True)

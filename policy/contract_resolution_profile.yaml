@@ -1,0 +1,33 @@
+schema_version: "1.0"
+required_declarations:
+  - kind: Type
+    id: ERROR_CODE
+  - kind: Type
+    id: RETRY_POLICY
+required_rule_prefixes:
+  - AUTHZ_
+  - INVARIANT_
+  - COMPENSATION_
+rule_naming:
+  allow_unmatched: true
+  require_bind: true
+  prefix_bindings:
+    AUTHZ_:
+      - Interface
+      - Function
+    INVARIANT_:
+      - Structure
+      - Type
+      - Const
+    COMPENSATION_:
+      - Function
+      - Interface
+rule_coverage:
+  require_rule_contract: true
+error_model:
+  error_code:
+    id: ERROR_CODE
+    format: string_union
+  retry_policy:
+    id: RETRY_POLICY
+    format: string_union

@@ -17,7 +17,7 @@ from sdslv2_builder.errors import Diagnostic, json_pointer
 from sdslv2_builder.op_yaml import load_yaml
 from sdslv2_builder.refs import CONTRACT_TOKEN_RE
 
-PLACEHOLDERS = {"None", "TBD", "Opaque"}
+PLACEHOLDERS = {"none", "tbd", "opaque"}
 LOCATOR_RE = re.compile(r"^L\d+-L\d+$|^H:[^#]+#L\d+-L\d+$")
 CONTENT_HASH_RE = re.compile(r"^sha256:[0-9a-f]{64}$")
 ALLOWED_PREFIXES = ("design/", "docs/", "specs/", "src/", "policy/attestations/")
@@ -42,7 +42,7 @@ def _print_diags(diags: list[Diagnostic]) -> None:
 
 
 def _is_placeholder(value: object) -> bool:
-    return isinstance(value, str) and value in PLACEHOLDERS
+    return isinstance(value, str) and value.strip().lower() in PLACEHOLDERS
 
 
 def _resolve_path(project_root: Path, raw: str) -> Path:
@@ -558,7 +558,20 @@ def main() -> int:
             print("E_EVIDENCE_INPUT_NOT_STANDARD_PATH", file=sys.stderr)
             return 2
 
-    data = load_yaml(evidence_path)
+    try:
+        data = load_yaml(evidence_path)
+    except Exception as exc:
+        diags: list[Diagnostic] = []
+        _diag(
+            diags,
+            "E_EVIDENCE_SCHEMA_INVALID",
+            "evidence yaml parse failed",
+            "valid YAML",
+            str(exc),
+            json_pointer(),
+        )
+        _print_diags(diags)
+        return 2
     _, diags = validate_evidence_data(data, decisions, project_root)
     if diags:
         _print_diags(diags)

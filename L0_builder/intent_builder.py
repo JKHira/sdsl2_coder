@@ -16,7 +16,7 @@ from sdslv2_builder.errors import Diagnostic
 from sdslv2_builder.input_hash import compute_input_hash
 from sdslv2_builder.io_atomic import atomic_write_text
 from sdslv2_builder.intent_schema import normalize_intent, REQUIRED_TOP_KEYS
-from sdslv2_builder.op_yaml import load_yaml, dump_yaml
+from sdslv2_builder.op_yaml import dump_yaml, load_yaml_with_duplicates
 from sdslv2_builder.schema_versions import INTENT_SCHEMA_VERSION
 
 
@@ -88,7 +88,7 @@ def main() -> int:
 
     project_root = Path(args.project_root).resolve() if args.project_root else ROOT
     intent_root = project_root / "drafts" / "intent"
-    if intent_root.is_symlink():
+    if intent_root.is_symlink() or _has_symlink_parent(intent_root, project_root):
         print("E_INTENT_INTENT_ROOT_SYMLINK", file=sys.stderr)
         return 2
 
@@ -108,7 +108,24 @@ def main() -> int:
         print("E_INTENT_INPUT_SYMLINK_PARENT", file=sys.stderr)
         return 2
 
-    data = load_yaml(path)
+    try:
+        data, duplicates = load_yaml_with_duplicates(path, allow_duplicates=True)
+    except Exception as exc:
+        print(f"E_INTENT_PARSE_FAILED:{exc}", file=sys.stderr)
+        return 2
+    if duplicates:
+        payload = [
+            {
+                "code": "E_INTENT_DUPLICATE_KEY",
+                "message": "duplicate key in intent",
+                "expected": "unique key",
+                "got": dup.key,
+                "path": dup.path,
+            }
+            for dup in duplicates
+        ]
+        print(json.dumps(payload, ensure_ascii=False, indent=2), file=sys.stderr)
+        return 2
     if not isinstance(data, dict):
         print(
             json.dumps(
@@ -210,6 +227,7 @@ def main() -> int:
         input_hash = compute_input_hash(
             project_root,
             include_decisions=False,
+            include_policy=False,
         )
     except (FileNotFoundError, ValueError) as exc:
         print(str(exc), file=sys.stderr)

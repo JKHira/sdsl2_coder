@@ -331,3 +331,56 @@ SDSL2 は TS 定義を直接参照しません。参照は SSOT.* / CONTRACT.* �
 	•	invariants/authz を Contract 側で固める
 	•	未達がある場合は exceptions を期限付きで管理し、DoD を PASS_WITH_EXCEPTIONS で運用
 	•	OUTPUT が保存される運用なら freshness/determinism を PASS で維持
+
+⸻
+
+8. 設定と実行手順（最小）
+
+ここでは「初期設定」と「最小の実行順」を定義します。詳細は各 builder の README を参照してください。
+
+8.1 設定（必須/推奨）
+	•	project_root はリポジトリルートを指す（すべてのツールで共通）
+	•	OUTPUT/ は派生出力専用（手編集しない）
+	•	policy/.sdsl 関連の主要ファイル
+		•	.sdsl/policy.yaml：Operational Gate の severity 設定
+		•	policy/resolution_profile.yaml：Topology L0 の required/vocab/pattern
+		•	policy/contract_resolution_profile.yaml：Contract L1 の required/rules/error_model
+		•	policy/ssot_kernel_profile.yaml：SSOT kernel coverage の required_paths/required_artifacts
+		•	policy/exceptions.yaml：L2 exceptions（期限・上限・出口条件）
+	•	L2 は --today (YYYY-MM-DD) を必須とし、publish は --publish を付ける
+	•	kernel_root が project_root と異なる場合は --kernel-root を指定する
+
+8.2 実行手順（最小）
+	L0（骨格と意図）
+		1) Manual/Addendum lint
+			python3 L0_builder/manual_addendum_lint.py --input sdsl2/topology --policy-path .sdsl/policy.yaml --project-root <repo>
+		2) Draft/Intent 整備
+			python3 L0_builder/draft_lint.py --input drafts --project-root <repo>
+			python3 L0_builder/draft_builder.py --input drafts/<draft>.yaml --project-root <repo> --scope-from sdsl2/topology/<topology>.sdsl2
+			python3 L0_builder/intent_builder.py --input drafts/intent --project-root <repo>
+		3) Topology 解像度チェック
+			python3 L0_builder/topology_resolution_lint.py --input sdsl2/topology --project-root <repo>
+			python3 L0_builder/resolution_gap_report.py --input sdsl2/topology --project-root <repo>
+		4) 任意：Intent Preview
+			python3 L0_builder/edgeintent_diff.py --input sdsl2/topology/<topology>.sdsl2 --draft drafts/intent/<intent>.yaml --project-root <repo>
+
+	L1（決定と昇格）
+		1) Operational Gate
+			python3 L1_builder/operational_gate.py --project-root <repo> --decisions-path decisions/edges.yaml --evidence-path decisions/evidence.yaml
+		2) Promote（diff-only）
+			python3 L1_builder/promote.py --project-root <repo> --out OUTPUT/promote.patch
+		3) Contract Promote（diff-only）
+			python3 L1_builder/contract_promote.py --project-root <repo> --out OUTPUT/contract_promote.patch
+
+	L2（例外・完成度・配布境界）
+		1) SSOT kernel definitions（必要時）
+			python3 ssot_kernel_builder/build_ssot_definitions.py --project-root <repo>
+		2) Registry 生成
+			python3 L2_builder/token_registry_gen.py --project-root <repo>
+		3) L2 Gate（publish なし）
+			python3 L2_builder/l2_gate_runner.py --today 2024-01-01 --project-root <repo>
+		4) L2 Gate（publish）
+			python3 L2_builder/l2_gate_runner.py --today 2024-01-01 --publish --project-root <repo>
+		5) 任意：Bundle/Implementation
+			python3 L2_builder/bundle_doc_gen.py --project-root <repo>
+			python3 L2_builder/implementation_skeleton_gen.py --project-root <repo>

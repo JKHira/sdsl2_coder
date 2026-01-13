@@ -19,10 +19,10 @@ from sdslv2_builder.op_yaml import load_yaml
 from sdslv2_builder.policy_utils import get_gate_severity, load_policy
 
 
-def _run_gate(cmd: list[str], gate_key: str | None, policy: dict, verbose: bool) -> int:
+def _run_gate(cmd: list[str], gate_key: str | None, policy: dict, verbose: bool, cwd: Path) -> int:
     if verbose:
         print("+", " ".join(cmd))
-    proc = subprocess.run(cmd, capture_output=True, text=True, cwd=ROOT)
+    proc = subprocess.run(cmd, capture_output=True, text=True, cwd=cwd)
     if proc.stdout:
         print(proc.stdout, end="")
     if proc.stderr:
@@ -36,10 +36,10 @@ def _run_gate(cmd: list[str], gate_key: str | None, policy: dict, verbose: bool)
     return 2
 
 
-def _run_drift_gate(cmd: list[str], policy: dict, verbose: bool) -> int:
+def _run_drift_gate(cmd: list[str], policy: dict, verbose: bool, cwd: Path) -> int:
     if verbose:
         print("+", " ".join(cmd))
-    proc = subprocess.run(cmd, capture_output=True, text=True, cwd=ROOT)
+    proc = subprocess.run(cmd, capture_output=True, text=True, cwd=cwd)
     if proc.stdout:
         print(proc.stdout, end="")
     if proc.returncode == 0:
@@ -225,7 +225,7 @@ def main() -> int:
         ]
         if args.kernel_root:
             build_cmd.extend(["--kernel-root", str(kernel_root)])
-        if _run_gate(build_cmd, None, policy, args.verbose) != 0:
+        if _run_gate(build_cmd, None, policy, args.verbose, project_root) != 0:
             return 2
         contract_cmd = [
             py,
@@ -233,7 +233,7 @@ def main() -> int:
             "--project-root",
             str(project_root),
         ]
-        if _run_gate(contract_cmd, None, policy, args.verbose) != 0:
+        if _run_gate(contract_cmd, None, policy, args.verbose, project_root) != 0:
             return 2
         registry_cmd = [
             py,
@@ -241,7 +241,7 @@ def main() -> int:
             "--project-root",
             str(project_root),
         ]
-        if _run_gate(registry_cmd, None, policy, args.verbose) != 0:
+        if _run_gate(registry_cmd, None, policy, args.verbose, project_root) != 0:
             return 2
 
     l1_cmd = [
@@ -253,6 +253,8 @@ def main() -> int:
         args.evidence_path,
         "--project-root",
         str(project_root),
+        "--today",
+        args.today,
     ]
     if args.allow_nonstandard_path:
         l1_cmd.append("--allow-nonstandard-path")
@@ -262,7 +264,7 @@ def main() -> int:
         l1_cmd.append("--fail-on-unresolved")
     for gate in sorted(exception_overrides):
         l1_cmd.extend(["--exceptions-target", gate])
-    if _run_gate(l1_cmd, None, policy, args.verbose) != 0:
+    if _run_gate(l1_cmd, None, policy, args.verbose, project_root) != 0:
         return 2
 
     contract_cmd = [
@@ -273,7 +275,7 @@ def main() -> int:
         "--project-root",
         str(project_root),
     ]
-    if _run_gate(contract_cmd, "contract_sdsl", policy, args.verbose) != 0:
+    if _run_gate(contract_cmd, "contract_sdsl", policy, args.verbose, project_root) != 0:
         return 2
 
     drift_cmd = [
@@ -286,7 +288,7 @@ def main() -> int:
     ]
     if args.allow_nonstandard_path:
         drift_cmd.append("--allow-nonstandard-path")
-    if _run_drift_gate(drift_cmd, policy, args.verbose) != 0:
+    if _run_drift_gate(drift_cmd, policy, args.verbose, project_root) != 0:
         return 2
 
     exception_cmd = [
@@ -297,7 +299,7 @@ def main() -> int:
         "--project-root",
         str(project_root),
     ]
-    if _run_gate(exception_cmd, "l2_exception_check", policy, args.verbose) != 0:
+    if _run_gate(exception_cmd, "l2_exception_check", policy, args.verbose, project_root) != 0:
         return 2
 
     if args.publish:
@@ -309,7 +311,7 @@ def main() -> int:
         ]
         if args.kernel_root:
             source_cmd.extend(["--kernel-root", str(kernel_root)])
-        if _run_gate(source_cmd, "ssot_kernel_source", policy, args.verbose) != 0:
+        if _run_gate(source_cmd, "ssot_kernel_source", policy, args.verbose, project_root) != 0:
             return 2
 
         kernel_cmd = [
@@ -318,7 +320,16 @@ def main() -> int:
             "--project-root",
             str(project_root),
         ]
-        if _run_gate(kernel_cmd, "ssot_kernel", policy, args.verbose) != 0:
+        if _run_gate(kernel_cmd, "ssot_kernel", policy, args.verbose, project_root) != 0:
+            return 2
+
+        coverage_cmd = [
+            py,
+            str(ROOT / "L2_builder" / "ssot_kernel_coverage_check.py"),
+            "--project-root",
+            str(project_root),
+        ]
+        if _run_gate(coverage_cmd, "ssot_kernel_coverage", policy, args.verbose, project_root) != 0:
             return 2
 
         registry_cmd = [
@@ -327,7 +338,7 @@ def main() -> int:
             "--project-root",
             str(project_root),
         ]
-        if _run_gate(registry_cmd, "ssot_registry_consistency", policy, args.verbose) != 0:
+        if _run_gate(registry_cmd, "ssot_registry_consistency", policy, args.verbose, project_root) != 0:
             return 2
 
         conformance_cmd = [
@@ -336,7 +347,7 @@ def main() -> int:
             "--project-root",
             str(project_root),
         ]
-        if _run_gate(conformance_cmd, None, policy, args.verbose) != 0:
+        if _run_gate(conformance_cmd, None, policy, args.verbose, project_root) != 0:
             return 2
 
         freshness_cmd = [
@@ -345,7 +356,7 @@ def main() -> int:
             "--project-root",
             str(project_root),
         ]
-        if _run_gate(freshness_cmd, None, policy, args.verbose) != 0:
+        if _run_gate(freshness_cmd, None, policy, args.verbose, project_root) != 0:
             return 2
 
     return 0

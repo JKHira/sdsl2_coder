@@ -152,6 +152,16 @@ def _compute_hash(
         return None
     try:
         return _compute_content_hash(source, locator)
+    except (OSError, UnicodeDecodeError) as exc:
+        _diag(
+            diags,
+            "E_EVIDENCE_REPAIR_SOURCE_READ_FAILED",
+            "source_path must be readable UTF-8 file",
+            "readable UTF-8 file",
+            str(exc),
+            path_ref,
+        )
+        return None
     except ValueError as exc:
         _diag(diags, str(exc), "locator in range", "valid range", locator_str, path_ref)
         return None
@@ -183,6 +193,11 @@ def main() -> int:
         "--project-root",
         default=None,
         help="Project root (defaults to repo root); inputs can be relative to it",
+    )
+    ap.add_argument(
+        "--allow-diff",
+        action="store_true",
+        help="Exit 0 even when a diff is produced",
     )
     args = ap.parse_args()
 
@@ -230,7 +245,20 @@ def main() -> int:
     if decision_diags:
         _print_diags(decision_diags)
         return 2
-    data = load_yaml(evidence_path)
+    try:
+        data = load_yaml(evidence_path)
+    except Exception as exc:
+        diags: list[Diagnostic] = []
+        _diag(
+            diags,
+            "E_EVIDENCE_REPAIR_SCHEMA_INVALID",
+            "evidence yaml parse failed",
+            "valid YAML",
+            str(exc),
+            json_pointer(),
+        )
+        _print_diags(diags)
+        return 2
     _, evidence_diags = validate_evidence_data(data, decisions, project_root)
     if evidence_diags:
         _print_diags(evidence_diags)
@@ -301,7 +329,7 @@ def main() -> int:
         out_path.write_text(diff_text, encoding="utf-8")
     else:
         print(diff_text, end="")
-    return 2
+    return 0 if args.allow_diff else 2
 
 
 if __name__ == "__main__":

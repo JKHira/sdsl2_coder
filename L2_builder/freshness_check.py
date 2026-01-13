@@ -99,6 +99,10 @@ def main() -> int:
     args = ap.parse_args()
 
     project_root = Path(args.project_root).resolve()
+    output_root = project_root / "OUTPUT"
+    if has_symlink_parent(output_root, project_root) or output_root.is_symlink():
+        print("E_FRESHNESS_OUTPUT_SYMLINK", file=sys.stderr)
+        return 2
     input_path = resolve_path(project_root, args.input)
 
     try:
@@ -119,7 +123,7 @@ def main() -> int:
         print("E_FRESHNESS_INPUT_SYMLINK", file=sys.stderr)
         return 2
 
-    output_root = (project_root / "OUTPUT").resolve()
+    output_root = output_root.resolve()
     decisions_needed_path = (project_root / "OUTPUT" / "decisions_needed.yaml").resolve()
     diagnostics_summary_path = (project_root / "OUTPUT" / "diagnostics_summary.yaml").resolve()
     extra_inputs: list[Path] = []
@@ -170,6 +174,8 @@ def main() -> int:
         print("E_FRESHNESS_DECISIONS_FLAG_CONFLICT", file=sys.stderr)
         return 2
     include_decisions = bool(args.include_decisions)
+    if args.no_decisions:
+        include_decisions = False
     try:
         result = compute_input_hash(
             project_root,

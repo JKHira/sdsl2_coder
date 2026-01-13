@@ -164,6 +164,16 @@ def _hash_for_item(
         return None
     try:
         return _compute_content_hash(source, locator)
+    except (OSError, UnicodeDecodeError) as exc:
+        _diag(
+            diags,
+            "E_EVIDENCE_SOURCE_READ_FAILED",
+            "source_path must be readable UTF-8 file",
+            "readable UTF-8 file",
+            str(exc),
+            path_ref,
+        )
+        return None
     except ValueError as exc:
         _diag(diags, str(exc), "locator in range", "valid range", locator_str, path_ref)
         return None
@@ -171,7 +181,19 @@ def _hash_for_item(
 
 def _verify_evidence_file(project_root: Path, evidence_path: Path) -> int:
     diags: list[Diagnostic] = []
-    data = load_yaml(evidence_path)
+    try:
+        data = load_yaml(evidence_path)
+    except Exception as exc:
+        _diag(
+            diags,
+            "E_EVIDENCE_SCHEMA_INVALID",
+            "evidence yaml parse failed",
+            "valid YAML",
+            str(exc),
+            json_pointer(),
+        )
+        _print_diags(diags)
+        return 2
     if not isinstance(data, dict):
         _diag(diags, "E_EVIDENCE_SCHEMA_INVALID", "evidence root must be object", "object", type(data).__name__, json_pointer())
         _print_diags(diags)

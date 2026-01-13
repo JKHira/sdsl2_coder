@@ -16,7 +16,7 @@ sys.path.insert(0, str(ROOT))
 from L2_builder.common import ROOT as REPO_ROOT, ensure_inside, has_symlink_parent, resolve_path
 from sdslv2_builder.addendum_policy import load_addendum_policy
 from sdslv2_builder.errors import Diagnostic, json_pointer
-from sdslv2_builder.op_yaml import load_yaml
+from sdslv2_builder.op_yaml import load_yaml_with_duplicates
 
 INPUT_HASH_RE = re.compile(r"^sha256:[0-9a-f]{64}$")
 DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
@@ -79,11 +79,32 @@ def main() -> int:
 
     diags: list[Diagnostic] = []
     diags.extend(policy_result.diagnostics)
+    if not policy_result.loaded:
+        _diag(
+            diags,
+            "E_POLICY_NOT_LOADED",
+            "policy not loaded",
+            "valid policy file",
+            str(policy_path) if policy_path else ".sdsl/policy.yaml",
+            json_pointer("policy"),
+        )
 
     try:
-        data = load_yaml(input_path)
+        data, duplicates = load_yaml_with_duplicates(input_path, allow_duplicates=True)
     except Exception as exc:
         _diag(diags, "E_EXCEPTION_PARSE_FAILED", "exceptions.yaml parse failed", "valid YAML", str(exc), json_pointer())
+        _print_diags(diags)
+        return 2
+    if duplicates:
+        for dup in duplicates:
+            _diag(
+                diags,
+                "E_EXCEPTION_DUPLICATE_KEY",
+                "duplicate key in exceptions",
+                "unique key",
+                dup.key,
+                dup.path,
+            )
         _print_diags(diags)
         return 2
 

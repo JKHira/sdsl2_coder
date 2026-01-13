@@ -138,7 +138,18 @@ def _load_intent_files(project_root: Path) -> tuple[list[dict], list[Diagnostic]
                 json_pointer(),
             )
             continue
-        data = load_yaml(path)
+        try:
+            data = load_yaml(path)
+        except Exception as exc:
+            _diag(
+                diags,
+                "E_READINESS_INTENT_PARSE_FAILED",
+                "Intent YAML parse failed",
+                "valid YAML",
+                str(exc),
+                json_pointer(),
+            )
+            continue
         if not isinstance(data, dict):
             _diag(
                 diags,

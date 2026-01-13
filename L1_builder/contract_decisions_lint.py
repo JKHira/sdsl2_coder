@@ -20,7 +20,7 @@ from sdslv2_builder.refs import (
     parse_internal_ref,
 )
 
-PLACEHOLDERS = {"None", "TBD", "Opaque"}
+PLACEHOLDERS = {"none", "tbd", "opaque"}
 
 
 def _diag(
@@ -42,7 +42,7 @@ def _print_diags(diags: list[Diagnostic]) -> None:
 
 
 def _is_placeholder(value: object) -> bool:
-    return isinstance(value, str) and value in PLACEHOLDERS
+    return isinstance(value, str) and value.strip().lower() in PLACEHOLDERS
 
 
 def _resolve_path(project_root: Path, raw: str) -> Path:
@@ -192,7 +192,18 @@ def parse_contract_decisions_file(
     project_root: Path,
 ) -> tuple[dict[str, object] | None, list[Diagnostic]]:
     diags: list[Diagnostic] = []
-    data = load_yaml(path)
+    try:
+        data = load_yaml(path)
+    except Exception as exc:
+        _diag(
+            diags,
+            "E_CONTRACT_DECISIONS_SCHEMA_INVALID",
+            "decisions yaml parse failed",
+            "valid YAML",
+            str(exc),
+            json_pointer(),
+        )
+        return None, diags
     if not isinstance(data, dict):
         _diag(
             diags,

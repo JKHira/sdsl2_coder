@@ -7,12 +7,12 @@ import sys
 from pathlib import Path
 
 from .errors import Diagnostic, json_pointer
-from .refs import INTERNAL_REF_RE, parse_contract_ref
+from .refs import parse_contract_ref, parse_internal_ref
 
 
 RELID_RE = re.compile(r"^[A-Z][A-Z0-9_]{2,63}$")
 DIRECTION_VOCAB = {"pub", "sub", "req", "rep", "rw", "call"}
-ALLOWED_KINDS = {"File", "DocMeta", "Node", "Edge", "Rule"}
+ALLOWED_KINDS = {"File", "DocMeta", "Node", "Edge", "EdgeIntent", "Rule"}
 
 
 def _print_diagnostics(diags: list[Diagnostic]) -> None:
@@ -367,10 +367,28 @@ def lint_text(text: str, path: Path) -> list[Diagnostic]:
                 json_pointer("edges", str(edge_index), "direction"),
             )
 
-        from_match = INTERNAL_REF_RE.match(from_val)
-        to_match = INTERNAL_REF_RE.match(to_val)
-        from_id = from_match.group("id") if from_match else ""
-        to_id = to_match.group("id") if to_match else ""
+        from_ref = parse_internal_ref(from_val)
+        to_ref = parse_internal_ref(to_val)
+        if from_val and (not from_ref or from_ref.kind != "Node"):
+            _diag(
+                diags,
+                "E_EDGE_FROM_TO_INVALID",
+                "Edge from must be @Node.RELID",
+                "@Node.RELID",
+                from_val,
+                json_pointer("edges", str(edge_index), "from"),
+            )
+        if to_val and (not to_ref or to_ref.kind != "Node"):
+            _diag(
+                diags,
+                "E_EDGE_FROM_TO_INVALID",
+                "Edge to must be @Node.RELID",
+                "@Node.RELID",
+                to_val,
+                json_pointer("edges", str(edge_index), "to"),
+            )
+        from_id = from_ref.rel_id if from_ref and from_ref.kind == "Node" else ""
+        to_id = to_ref.rel_id if to_ref and to_ref.kind == "Node" else ""
         if from_id and from_id not in node_ids:
             _diag(
                 diags,

@@ -79,12 +79,13 @@ def _extract_tokens_from_value(value: str) -> tuple[set[str], set[str]]:
     return contract_tokens, ssot_tokens
 
 
-def _collect_tokens_from_sdsl(project_root: Path) -> tuple[set[str], set[str]]:
+def _collect_tokens_from_sdsl(project_root: Path) -> tuple[set[str], set[str], list[Path]]:
     ssot_root = project_root / "sdsl2"
     contract_tokens: set[str] = set()
     ssot_tokens: set[str] = set()
+    inputs: list[Path] = []
     if not ssot_root.exists():
-        return contract_tokens, ssot_tokens
+        return contract_tokens, ssot_tokens, inputs
     if ssot_root.is_symlink() or _has_symlink_parent(ssot_root, project_root):
         raise ValueError("E_REGISTRY_GEN_SSOT_SYMLINK")
     for path in sorted(ssot_root.rglob("*.sdsl2")):
@@ -92,7 +93,11 @@ def _collect_tokens_from_sdsl(project_root: Path) -> tuple[set[str], set[str]]:
             continue
         if path.is_symlink() or _has_symlink_parent(path, ssot_root):
             raise ValueError("E_REGISTRY_GEN_SSOT_SYMLINK")
-        lines = path.read_text(encoding="utf-8").splitlines()
+        try:
+            lines = path.read_text(encoding="utf-8").splitlines()
+        except (OSError, UnicodeDecodeError) as exc:
+            raise ValueError(f"E_REGISTRY_GEN_SSOT_READ_FAILED:{exc}") from exc
+        inputs.append(path)
         for idx, line in enumerate(lines):
             stripped = line.lstrip()
             if stripped == "" or stripped.startswith("//") or not stripped.startswith("@"):
@@ -100,13 +105,16 @@ def _collect_tokens_from_sdsl(project_root: Path) -> tuple[set[str], set[str]]:
             brace_idx = line.find("{")
             if brace_idx == -1:
                 continue
-            meta, _ = _capture_metadata(lines, idx, brace_idx)
+            try:
+                meta, _ = _capture_metadata(lines, idx, brace_idx)
+            except Exception as exc:
+                raise ValueError(f"E_REGISTRY_GEN_METADATA_PARSE_FAILED:{path}:{idx + 1}:{exc}") from exc
             pairs = _parse_metadata_pairs(meta)
             for _, value in pairs:
                 contract, ssot = _extract_tokens_from_value(value)
                 contract_tokens.update(contract)
                 ssot_tokens.update(ssot)
-    return contract_tokens, ssot_tokens
+    return contract_tokens, ssot_tokens, inputs
 
 
 def _load_token_map(path: Path, prefix: str) -> dict[str, str]:
@@ -268,11 +276,19 @@ def main() -> int:
     args = ap.parse_args()
 
     project_root = Path(args.project_root).resolve() if args.project_root else ROOT
+    output_root = project_root / "OUTPUT"
+    output_ssot = output_root / "ssot"
+    if output_root.is_symlink() or _has_symlink_parent(output_root, project_root):
+        print("E_REGISTRY_GEN_OUTPUT_SYMLINK", file=sys.stderr)
+        return 2
+    if output_ssot.is_symlink() or _has_symlink_parent(output_ssot, project_root):
+        print("E_REGISTRY_GEN_OUTPUT_SYMLINK", file=sys.stderr)
+        return 2
     ssot_out = _resolve_path(project_root, args.ssot_out)
     contract_out = _resolve_path(project_root, args.contract_out)
 
     try:
-        contract_used, ssot_used = _collect_tokens_from_sdsl(project_root)
+        contract_used, ssot_used, sdsl_inputs = _collect_tokens_from_sdsl(project_root)
     except ValueError as exc:
         print(str(exc), file=sys.stderr)
         return 2
@@ -280,6 +296,7 @@ def main() -> int:
     ssot_map: dict[str, str] = {}
     contract_map: dict[str, str] = {}
     extra_inputs: list[Path] = []
+    extra_inputs.extend(sdsl_inputs)
     try:
         ssot_map = _load_map_with_checks(
             project_root,

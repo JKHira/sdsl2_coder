@@ -16,8 +16,23 @@ export function getSsotToken(token: SsotToken) {
 }
 
 export function resolveSsotToken(token: SsotToken): SsotToken {
-  const def = getSsotToken(token) as { kind: string; alias_of?: SsotToken };
-  return def.kind === "alias" && def.alias_of ? def.alias_of : token;
+  let current = token;
+  const visited = new Set<SsotToken>();
+  while (true) {
+    if (visited.has(current)) {
+      throw new Error(`SSOT alias cycle detected: ${token}`);
+    }
+    visited.add(current);
+    const def = getSsotToken(current) as { kind?: string; alias_of?: SsotToken };
+    if (def.kind === "alias" && def.alias_of) {
+      if (!isKnownSsotToken(def.alias_of)) {
+        throw new Error(`SSOT alias target missing: ${def.alias_of}`);
+      }
+      current = def.alias_of;
+      continue;
+    }
+    return current;
+  }
 }
 
 export function getSsotTokenValue(token: SsotToken): unknown {

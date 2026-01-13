@@ -17,7 +17,7 @@ from sdslv2_builder.lint import DIRECTION_VOCAB, _capture_metadata, _parse_metad
 from sdslv2_builder.op_yaml import load_yaml
 from sdslv2_builder.refs import CONTRACT_TOKEN_RE, RELID_RE
 
-PLACEHOLDERS = {"None", "TBD", "Opaque"}
+PLACEHOLDERS = {"none", "tbd", "opaque"}
 ANNOTATION_KIND_RE = re.compile(r"^\s*@(?P<kind>[A-Za-z_][A-Za-z0-9_]*)\b")
 
 
@@ -40,7 +40,7 @@ def _print_diags(diags: list[Diagnostic]) -> None:
 
 
 def _is_placeholder(value: object) -> bool:
-    return isinstance(value, str) and value in PLACEHOLDERS
+    return isinstance(value, str) and value.strip().lower() in PLACEHOLDERS
 
 
 def _resolve_path(project_root: Path, raw: str) -> Path:

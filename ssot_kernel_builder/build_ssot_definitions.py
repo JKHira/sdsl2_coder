@@ -9,6 +9,7 @@ import json
 import subprocess
 import sys
 from pathlib import Path
+import re
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
@@ -249,6 +250,33 @@ def main() -> int:
         print(str(exc), file=sys.stderr)
         return 2
 
+    token_rules = defs.get("kernel")
+    if not isinstance(token_rules, dict):
+        print("E_SSOT_DEF_KERNEL_INVALID", file=sys.stderr)
+        return 2
+    token_rules = token_rules.get("token_rules")
+    if not isinstance(token_rules, dict):
+        print("E_SSOT_DEF_TOKEN_RULES_INVALID", file=sys.stderr)
+        return 2
+    ssot_pattern = token_rules.get("ssot_ref_pattern")
+    if not isinstance(ssot_pattern, str) or not ssot_pattern.strip():
+        print("E_SSOT_DEF_TOKEN_RULES_INVALID", file=sys.stderr)
+        return 2
+    contract_pattern = token_rules.get("contract_ref_pattern")
+    if not isinstance(contract_pattern, str) or not contract_pattern.strip():
+        print("E_SSOT_DEF_TOKEN_RULES_INVALID", file=sys.stderr)
+        return 2
+    try:
+        ssot_ref_re = re.compile(ssot_pattern)
+    except re.error as exc:
+        print(f"E_SSOT_DEF_TOKEN_RULES_INVALID:{exc}", file=sys.stderr)
+        return 2
+    try:
+        re.compile(contract_pattern)
+    except re.error as exc:
+        print(f"E_SSOT_DEF_TOKEN_RULES_INVALID:{exc}", file=sys.stderr)
+        return 2
+
     tokens = defs.get("tokens")
     if tokens is None:
         tokens = {}
@@ -256,9 +284,21 @@ def main() -> int:
         print("E_SSOT_DEF_TOKENS_INVALID", file=sys.stderr)
         return 2
     for key in tokens.keys():
-        if not isinstance(key, str) or not key.startswith("SSOT."):
+        if not isinstance(key, str) or not ssot_ref_re.match(key):
             print("E_SSOT_DEF_TOKEN_INVALID", file=sys.stderr)
             return 2
+
+    dist = defs.get("kernel")
+    dist = dist.get("distribution_boundary") if isinstance(dist, dict) else None
+    dist_path = None
+    if isinstance(dist, dict):
+        raw_path = dist.get("definitions_path")
+        if isinstance(raw_path, str) and raw_path.strip():
+            dist_path = raw_path.strip()
+    if dist_path and dist_path != args.out_definitions:
+        print("E_SSOT_DEF_BOUNDARY_MISMATCH", file=sys.stderr)
+        return 2
+    registry_base = dist_path or DEFAULT_OUT_DEFINITIONS
 
     input_hash = _compute_input_hash(kernel_root, [definitions_path])
     payload = {
@@ -286,7 +326,7 @@ def main() -> int:
     }
     for token in sorted(tokens.keys()):
         pointer = "/tokens/" + _escape_pointer(token)
-        registry_map[token] = f"{DEFAULT_OUT_DEFINITIONS}#{pointer}"
+        registry_map[token] = f"{registry_base}#{pointer}"
 
     try:
         _write_json(out_registry_map, registry_map, "E_SSOT_DEF_OUTPUT_SYMLINK")

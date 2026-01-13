@@ -61,6 +61,13 @@ def main() -> int:
         print("E_CONTEXT_PACK_HOPS_INVALID", file=sys.stderr)
         return 2
 
+    raw_input = Path(args.input)
+    if not raw_input.is_absolute():
+        raw_input = project_root / raw_input
+    if raw_input.is_symlink() or has_symlink_parent(raw_input, project_root):
+        print("E_CONTEXT_PACK_INPUT_SYMLINK", file=sys.stderr)
+        return 2
+
     input_path = resolve_path(project_root, args.input)
     ssot_root = (project_root / "sdsl2" / "topology").resolve()
     if has_symlink_parent(ssot_root, project_root) or ssot_root.is_symlink():
@@ -128,6 +135,11 @@ def main() -> int:
     if args.out == "-":
         print(output, end="")
         return 0
+
+    output_root = project_root / "OUTPUT"
+    if output_root.is_symlink() or has_symlink_parent(output_root, project_root):
+        print("E_CONTEXT_PACK_OUTPUT_SYMLINK", file=sys.stderr)
+        return 2
 
     out_path = resolve_path(project_root, args.out)
     expected = (project_root / DEFAULT_OUT).resolve()

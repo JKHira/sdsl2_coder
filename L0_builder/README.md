@@ -13,6 +13,7 @@ Ready
 - `draft_lint.py` -> Draft schema validation.
 - `ledger_builder.py` -> Build topology ledger from a node list.
 - `topology_resolution_lint.py` -> Topology resolution lint for required fields (L0 safety).
+- `resolution_profile_lint.py` -> Validate resolution profile structure (policy/resolution_profile.yaml).
 - `resolution_gap_report.py` -> Emit resolution gaps to OUTPUT/resolution_gaps.yaml.
 - `edgeintent_diff.py` -> Intent preview diff generator (stdout unified diff against OUTPUT/intent_preview.sdsl2 only; no auto-apply).
 

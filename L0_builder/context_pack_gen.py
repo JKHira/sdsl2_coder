@@ -146,6 +146,10 @@ def main() -> int:
 
     out_path = _resolve_path(project_root, args.out)
     expected = (project_root / DEFAULT_OUT).absolute()
+    output_root = project_root / "OUTPUT"
+    if output_root.is_symlink() or _has_symlink_parent(output_root, project_root):
+        print("E_CONTEXT_PACK_OUTPUT_SYMLINK", file=sys.stderr)
+        return 2
     if out_path != expected:
         print("E_CONTEXT_PACK_OUTPUT_PATH_INVALID", file=sys.stderr)
         return 2

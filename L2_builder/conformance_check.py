@@ -41,15 +41,46 @@ def _git_rev(project_root: Path) -> str:
     return result.stdout.strip()
 
 
-def _collect_ids(lines: list[str], kind: str) -> list[str]:
+def _find_metadata_brace(lines: list[str], start_idx: int) -> tuple[int, int] | None:
+    brace_idx = lines[start_idx].find("{")
+    if brace_idx != -1:
+        return start_idx, brace_idx
+    idx = start_idx + 1
+    while idx < len(lines):
+        stripped = lines[idx].strip()
+        if stripped == "" or stripped.startswith("//"):
+            idx += 1
+            continue
+        if stripped.startswith("@"):
+            return None
+        brace_idx = lines[idx].find("{")
+        if brace_idx == -1:
+            return None
+        return idx, brace_idx
+    return None
+
+
+def _collect_ids(lines: list[str], kind: str, diags: list[Diagnostic]) -> list[str]:
     ids: list[str] = []
     for idx, line in enumerate(lines):
         if not line.lstrip().startswith(f"@{kind}"):
             continue
-        brace_idx = line.find("{")
-        if brace_idx == -1:
+        brace = _find_metadata_brace(lines, idx)
+        if brace is None:
             continue
-        meta, _ = _capture_metadata(lines, idx, brace_idx)
+        meta_idx, brace_idx = brace
+        try:
+            meta, _ = _capture_metadata(lines, meta_idx, brace_idx)
+        except Exception as exc:
+            _diag(
+                diags,
+                "E_CONFORMANCE_METADATA_PARSE_FAILED",
+                "metadata parse failed",
+                "valid @Kind { ... } metadata",
+                str(exc),
+                json_pointer("annotations", str(meta_idx)),
+            )
+            continue
         pairs = _parse_metadata_pairs(meta)
         for key, value in pairs:
             if key == "id":
@@ -70,6 +101,10 @@ def main() -> int:
     args = ap.parse_args()
 
     project_root = Path(args.project_root).resolve()
+    output_root = project_root / "OUTPUT"
+    if has_symlink_parent(output_root, project_root) or output_root.is_symlink():
+        print("E_CONFORMANCE_OUTPUT_SYMLINK", file=sys.stderr)
+        return 2
     input_path = resolve_path(project_root, args.input)
 
     try:
@@ -134,10 +169,24 @@ def main() -> int:
         if has_symlink_parent(path, project_root) or path.is_symlink():
             print("E_CONFORMANCE_CONTRACT_SYMLINK", file=sys.stderr)
             return 2
-        text = path.read_text(encoding="utf-8")
+        try:
+            text = path.read_text(encoding="utf-8")
+        except (OSError, UnicodeDecodeError) as exc:
+            _diag(
+                diags,
+                "E_CONFORMANCE_READ_FAILED",
+                "contract file read failed",
+                "readable UTF-8 file",
+                str(exc),
+                json_pointer("inputs", path.as_posix()),
+            )
+            continue
         lines = text.splitlines()
-        structures.update(_collect_ids(lines, "Structure"))
-        rules.update(_collect_ids(lines, "Rule"))
+        structures.update(_collect_ids(lines, "Structure", diags))
+        rules.update(_collect_ids(lines, "Rule", diags))
+    if diags:
+        _print_diags(diags)
+        return 2
 
     expected_structures = sorted(structures)
     expected_rules = sorted(rules)

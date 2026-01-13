@@ -43,6 +43,12 @@ def _validate_path(path: Path, root: Path) -> None:
         raise ValueError(f"INPUT_HASH_SYMLINK:{path}")
     if _has_symlink_parent(path, root):
         raise ValueError(f"INPUT_HASH_SYMLINK_PARENT:{path}")
+    if not path.is_file():
+        raise ValueError(f"INPUT_HASH_NOT_FILE:{path}")
+    try:
+        path.resolve().relative_to(root.resolve())
+    except ValueError:
+        raise ValueError(f"INPUT_HASH_OUTSIDE_ROOT:{path}") from None
 
 
 def _ssot_files(root: Path) -> list[Path]:
@@ -83,7 +89,11 @@ def compute_input_hash(
 ) -> InputHashResult:
     inputs = _base_inputs(root, include_decisions)
     if include_policy:
-        for policy_path in [root / ".sdsl" / "policy.yaml", root / "policy" / "exceptions.yaml"]:
+        for policy_path in [
+            root / ".sdsl" / "policy.yaml",
+            root / ".sdsl" / "policy.yml",
+            root / "policy" / "exceptions.yaml",
+        ]:
             if policy_path.exists():
                 _validate_path(policy_path, root)
                 inputs.append(policy_path)

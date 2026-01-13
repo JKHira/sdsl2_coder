@@ -1,0 +1,52 @@
+Context Pack
+Header:
+  target: @Node.ORDER_API
+  profile: topology
+  stage: L1
+Nodes:
+  - rel_id: EXTERNAL_CLIENT
+    canon_id: P0_T_ORDER_FLOW_L0_EXTERNAL_CLIENT
+  - rel_id: INVENTORY_SERVICE
+    canon_id: P0_T_ORDER_FLOW_L0_INVENTORY_SERVICE
+  - rel_id: ORDER_API
+    canon_id: P0_T_ORDER_FLOW_L0_ORDER_API
+  - rel_id: PAYMENT_FULFILLMENT
+    canon_id: P0_T_ORDER_FLOW_L0_PAYMENT_FULFILLMENT
+Edges:
+  - from: @Node.EXTERNAL_CLIENT
+    to: @Node.ORDER_API
+    direction: "call"
+    channel: None
+    contract_refs:
+      - "CONTRACT.SubmitOrder"
+  - from: @Node.ORDER_API
+    to: @Node.INVENTORY_SERVICE
+    direction: "call"
+    channel: None
+    contract_refs:
+      - "CONTRACT.ReserveInventory"
+  - from: @Node.ORDER_API
+    to: @Node.PAYMENT_FULFILLMENT
+    direction: "call"
+    channel: None
+    contract_refs:
+      - "CONTRACT.PayAndCreateFulfillment"
+Contracts:
+  - "CONTRACT.PayAndCreateFulfillment"
+  - "CONTRACT.ReserveInventory"
+  - "CONTRACT.SubmitOrder"
+Authz:
+  []
+Invariants:
+  []
+Open TODO: {}
+---
+Supplementary: provenance
+generator: "L2_builder.bundle_doc_gen"
+source_rev: "e58e8f6bc4fa748b9b4ceb113307311829e85633"
+inputs:
+  - "OUTPUT/decisions_needed.yaml"
+  - "OUTPUT/diagnostics_summary.yaml"
+  - "sdsl2/contract/P0_C_ORDER_FLOW.sdsl2"
+  - "sdsl2/topology/P0_T_ORDER_FLOW_L0.sdsl2"
+  - "input_hash:sha256:bdff089029f88fdf8b3373960168854eee3e048c52551aa066ff5f83e391a1d6"

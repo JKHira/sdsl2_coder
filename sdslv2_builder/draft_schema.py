@@ -5,6 +5,7 @@ from typing import Any
 
 from .errors import Diagnostic, json_pointer
 from .refs import RELID_RE
+from .schema_versions import DRAFT_SCHEMA_VERSION
 
 DIRECTION_VOCAB = {"pub", "sub", "req", "rep", "rw", "call"}
 SCHEMA_VERSION_RE = re.compile(r"^\d+\.\d+$")
@@ -94,6 +95,15 @@ def normalize_draft(data: dict[str, Any], fill_missing: bool) -> tuple[dict[str,
     schema_version = data.get("schema_version", "")
     if not isinstance(schema_version, str) or not SCHEMA_VERSION_RE.match(schema_version):
         _diag(diags, "E_DRAFT_SCHEMA_INVALID", "Invalid schema_version", "MAJOR.MINOR", str(schema_version), json_pointer("schema_version"))
+    elif schema_version != DRAFT_SCHEMA_VERSION:
+        _diag(
+            diags,
+            "E_DRAFT_SCHEMA_VERSION_MISMATCH",
+            "schema_version mismatch",
+            DRAFT_SCHEMA_VERSION,
+            schema_version,
+            json_pointer("schema_version"),
+        )
     _check_placeholder(schema_version, json_pointer("schema_version"), diags)
     normalized["schema_version"] = schema_version
 
@@ -179,6 +189,17 @@ def normalize_draft(data: dict[str, Any], fill_missing: bool) -> tuple[dict[str,
     if intents != intents_sorted:
         _diag(diags, "E_DRAFT_LIST_NOT_SORTED", "edge_intents_proposed must be sorted by id", "sorted", "unsorted", json_pointer("edge_intents_proposed"))
     normalized["edge_intents_proposed"] = intents_sorted
+
+    intent_ids_list = [intent.get("id", "") for intent in intents_sorted]
+    if len(intent_ids_list) != len(set(intent_ids_list)):
+        _diag(
+            diags,
+            "E_DRAFT_DUPLICATE_ID",
+            "edge_intents_proposed.id must be unique",
+            "unique ids",
+            "duplicate",
+            json_pointer("edge_intents_proposed"),
+        )
 
     intent_ids = {intent.get("id") for intent in intents_sorted if intent.get("id")}
 

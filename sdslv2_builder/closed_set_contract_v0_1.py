@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from .errors import BuilderError, Diagnostic, json_pointer
-from .refs import ContractRef, InternalRef
+from .refs import ContractRef, InternalRef, SSOTRef
 
 
 DECL_KINDS = {
@@ -94,3 +94,46 @@ def validate_contract_model_v0_1(model) -> None:
                     path=json_pointer("rules", str(idx)),
                 )
             )
+        if not isinstance(rule.bind, InternalRef):
+            raise BuilderError(
+                Diagnostic(
+                    code="E_RULE_BIND_INVALID",
+                    message="rule bind must be InternalRef",
+                    expected="@Kind.RELID",
+                    got=str(rule.bind),
+                    path=json_pointer("rules", str(idx), "bind"),
+                )
+            )
+        for ref_idx, ref in enumerate(rule.refs):
+            if not isinstance(ref, InternalRef):
+                raise BuilderError(
+                    Diagnostic(
+                        code="E_RULE_REFS_INVALID",
+                        message="rule refs must be InternalRef list",
+                        expected="@Kind.RELID",
+                        got=str(ref),
+                        path=json_pointer("rules", str(idx), "refs", str(ref_idx)),
+                    )
+                )
+        for ref_idx, ref in enumerate(rule.contract):
+            if not isinstance(ref, ContractRef):
+                raise BuilderError(
+                    Diagnostic(
+                        code="E_CONTRACT_REFS_INVALID",
+                        message="rule contract must be ContractRef list",
+                        expected="CONTRACT.*",
+                        got=str(ref),
+                        path=json_pointer("rules", str(idx), "contract", str(ref_idx)),
+                    )
+                )
+        for ref_idx, ref in enumerate(rule.ssot):
+            if not isinstance(ref, SSOTRef):
+                raise BuilderError(
+                    Diagnostic(
+                        code="E_TOKEN_PLACEMENT_VIOLATION",
+                        message="rule ssot must be SSOTRef list",
+                        expected="SSOT.*",
+                        got=str(ref),
+                        path=json_pointer("rules", str(idx), "ssot", str(ref_idx)),
+                    )
+                )

@@ -246,6 +246,16 @@ def validate_ledger(data: dict[str, Any], output_root: Path) -> tuple[TopologyIn
             str(data.get("version")),
             json_pointer("version"),
         )
+    schema_revision = data.get("schema_revision")
+    if not isinstance(schema_revision, str) or not schema_revision.strip():
+        _add_diag(
+            diagnostics,
+            "E_LEDGER_SCHEMA_INVALID",
+            "schema_revision must be non-empty string",
+            "non-empty string",
+            str(schema_revision),
+            json_pointer("schema_revision"),
+        )
 
     file_header = _ensure_dict(data.get("file_header"), diagnostics, json_pointer("file_header"))
     header_allowed = {"profile", "id_prefix", "stage"}
@@ -344,7 +354,8 @@ def validate_ledger(data: dict[str, Any], output_root: Path) -> tuple[TopologyIn
                 rel_id,
                 json_pointer("nodes", str(idx), "id"),
             )
-        node_ids.add(rel_id)
+        if rel_id:
+            node_ids.add(rel_id)
 
         kind = node_obj.get("kind")
         if not isinstance(kind, str) or not kind.strip():

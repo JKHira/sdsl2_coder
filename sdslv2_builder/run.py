@@ -8,6 +8,7 @@ from pathlib import Path
 from .errors import Diagnostic
 from .ledger import load_ledger, validate_ledger
 from .topology import build_topology_model
+from .io_atomic import atomic_write_text
 from .writer import write_topology
 
 
@@ -52,7 +53,7 @@ def main() -> int:
     if output_path is None:
         output_path = output_root / topology_input.id_prefix / "topology.sdsl2"
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    output_path.write_text(text, encoding="utf-8")
+    atomic_write_text(output_path, text, encoding="utf-8")
     return 0
 
 

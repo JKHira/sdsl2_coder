@@ -1,0 +1,36 @@
+--- /Volumes/SSD/Dev_Projects/SDSL2_Coder/project_testing/l0_sandbox/sdsl2/topology/P0_T_ORDER_FLOW_L0.sdsl2
++++ /Volumes/SSD/Dev_Projects/SDSL2_Coder/project_testing/l0_sandbox/sdsl2/topology/P0_T_ORDER_FLOW_L0.sdsl2
+@@ -1,5 +1,32 @@
+-@File { profile:"topology", id_prefix:"P0_T_ORDER_FLOW_L0", stage:"L0" }
++@File { profile:"topology", id_prefix:"P0_T_ORDER_FLOW_L0", stage:"L1" }
+ @Node { id:"EXTERNAL_CLIENT", kind:"component" }
+ @Node { id:"INVENTORY_SERVICE", kind:"component" }
+ @Node { id:"ORDER_API", kind:"component" }
+ @Node { id:"PAYMENT_FULFILLMENT", kind:"component" }
++@Edge {
++  id:"EDGE_INTENT_01",
++  from:@Node.EXTERNAL_CLIENT,
++  to:@Node.ORDER_API,
++  direction:"call",
++  contract_refs:[
++    "CONTRACT.SubmitOrder",
++  ],
++}
++@Edge {
++  id:"EDGE_INTENT_02",
++  from:@Node.ORDER_API,
++  to:@Node.INVENTORY_SERVICE,
++  direction:"call",
++  contract_refs:[
++    "CONTRACT.ReserveInventory",
++  ],
++}
++@Edge {
++  id:"EDGE_INTENT_03",
++  from:@Node.ORDER_API,
++  to:@Node.PAYMENT_FULFILLMENT,
++  direction:"call",
++  contract_refs:[
++    "CONTRACT.PayAndCreateFulfillment",
++  ],
++}

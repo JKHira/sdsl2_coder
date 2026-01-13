@@ -4,8 +4,8 @@ from dataclasses import dataclass
 from pathlib import Path
 import re
 
-from .lint import _capture_metadata, _parse_metadata_pairs, _split_list_items
-from .refs import RELID_RE, parse_internal_ref
+from .lint import _capture_metadata, _parse_metadata_pairs, _split_list_items, DIRECTION_VOCAB
+from .refs import RELID_RE, parse_contract_ref, parse_internal_ref
 
 
 ANNOTATION_KIND_RE = re.compile(r"^\s*@(?P<kind>[A-Za-z_][A-Za-z0-9_]*)\b")
@@ -47,6 +47,31 @@ def _strip_quotes(value: str) -> str:
 def _quote(value: str) -> str:
     value = value.replace("\\", "\\\\").replace('"', '\\"')
     return f'"{value}"'
+
+
+def _has_block_comment(text: str) -> bool:
+    in_string: str | None = None
+    escaped = False
+    i = 0
+    while i + 1 < len(text):
+        ch = text[i]
+        if in_string is not None:
+            if escaped:
+                escaped = False
+            elif ch == "\\":
+                escaped = True
+            elif ch == in_string:
+                in_string = None
+            i += 1
+            continue
+        if ch in ('"', "'"):
+            in_string = ch
+            i += 1
+            continue
+        if ch == "/" and text[i + 1] == "*":
+            return True
+        i += 1
+    return False
 
 
 def _parse_annotations(lines: list[str]) -> list[tuple[str, dict[str, str], int]]:
@@ -133,6 +158,8 @@ def _parse_edges(
             raise ValueError("E_CONTEXT_PACK_EDGE_NODE_UNDECLARED")
         direction = meta.get("direction")
         direction = _strip_quotes(direction) if direction else None
+        if direction and direction not in DIRECTION_VOCAB:
+            raise ValueError("E_CONTEXT_PACK_EDGE_DIRECTION_INVALID")
         channel = meta.get("channel")
         channel = _strip_quotes(channel) if channel else None
         contract_refs: list[str] = []
@@ -141,7 +168,10 @@ def _parse_edges(
             raise ValueError("E_CONTEXT_PACK_EDGE_CONTRACT_REFS_MISSING")
         if raw_contract_refs:
             for item in _split_list_items(raw_contract_refs):
-                contract_refs.append(_strip_quotes(item))
+                token = _strip_quotes(item)
+                if not parse_contract_ref(token):
+                    raise ValueError("E_CONTEXT_PACK_CONTRACT_REF_INVALID")
+                contract_refs.append(token)
         if not contract_refs:
             raise ValueError("E_CONTEXT_PACK_EDGE_CONTRACT_REFS_EMPTY")
         contract_refs = sorted(dict.fromkeys(contract_refs))
@@ -184,12 +214,16 @@ def _parse_edge_intents(
         note = meta.get("note")
         owner = meta.get("owner")
         contract_hint = meta.get("contract_hint")
+        if direction:
+            direction = _strip_quotes(direction)
+            if direction and direction not in DIRECTION_VOCAB:
+                raise ValueError("E_CONTEXT_PACK_EDGEINTENT_DIRECTION_INVALID")
         intents.append(
             EdgeIntentEntry(
                 intent_id=intent_id,
                 from_id=from_ref.rel_id,
                 to_id=to_ref.rel_id,
-                direction=_strip_quotes(direction) if direction else None,
+                direction=direction if direction else None,
                 channel=_strip_quotes(channel) if channel else None,
                 note=_strip_quotes(note) if note else None,
                 owner=_strip_quotes(owner) if owner else None,
@@ -239,7 +273,7 @@ def _first_stmt_line(lines: list[str]) -> int | None:
 
 def extract_context_pack(path: Path, target: str, hops: int = 1) -> str:
     text = path.read_text(encoding="utf-8")
-    if "/*" in text or "*/" in text:
+    if _has_block_comment(text):
         raise ValueError("E_CONTEXT_PACK_BLOCK_COMMENT_UNSUPPORTED")
     lines = text.splitlines()
     annotations = _parse_annotations(lines)
