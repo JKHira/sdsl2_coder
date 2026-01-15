@@ -1,0 +1,9 @@
+edges:
+  - id: ORDER_TO_INVENTORY
+    from: ORDER_API
+    to: INVENTORY_SERVICE
+    direction: req
+  - id: ORDER_TO_INVENTORY
+    from: ORDER_API
+    to: INVENTORY_SERVICE
+    direction: req

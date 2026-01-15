@@ -1,0 +1,5 @@
+edges:
+  - id: ORDER_TO_UNKNOWN
+    from: ORDER_API
+    to: UNKNOWN_SERVICE
+    direction: req

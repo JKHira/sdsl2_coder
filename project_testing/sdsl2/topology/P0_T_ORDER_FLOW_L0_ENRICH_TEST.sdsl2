@@ -1,2 +1,0 @@
-@File { profile:"topology", id_prefix:"P0_T_ORDER_FLOW_L0_TEST", stage:"L0" }
-@Node { id:"ORDER_API", kind:"service" }

@@ -1,9 +1,13 @@
 --- /Volumes/SSD/Dev_Projects/SDSL2_Coder/project_testing/sdsl2/contract/P0_C_ORDER_FLOW.sdsl2
 +++ /Volumes/SSD/Dev_Projects/SDSL2_Coder/project_testing/sdsl2/contract/P0_C_ORDER_FLOW.sdsl2
-@@ -9,3 +9,6 @@
- 
- @Rule { id:"AUTHZ_RESERVE_INVENTORY", bind:@Function.RESERVE_INVENTORY, contract:["CONTRACT.RESERVE_INVENTORY"] }
- @Rule { id:"AUTHZ_PAY_AND_FULFILL", bind:@Function.PAY_AND_FULFILL, contract:["CONTRACT.PAY_AND_FULFILL"] }
-+@DocMeta { id:"DOC_META", desc:"gen:contract_scaffold_gen_v0_1;rev:496f615000216066724be8d0ce151ad138af0b35;input:sha256:96e9e9c7574e52b6f9d6792ec95cfd1f09b3ccbfac5cb380002759575ae31097" }
-+@Type { id:"NOTIFY_ORDER", contract:["CONTRACT.NOTIFY_ORDER"] }
-+type NOTIFY_ORDER = "UNSPECIFIED"
+@@ -0,0 +1,10 @@
++@File { profile:"contract", id_prefix:"P0_C_ORDER_FLOW" }
++@DocMeta { id:"DOC_META", desc:"gen:contract_scaffold_gen_v0_1;rev:9310e4a1c7eecd55322fdf395e0643501388a6e1;input:sha256:3f286279e11e4e6966ed03bb7fa1cadc48422716291d625d2d5986feadfdfa95" }
++@Type { id:"INVENTORY_RESERVE", contract:["CONTRACT.INVENTORY_RESERVE"] }
++type INVENTORY_RESERVE = "UNSPECIFIED"
++@Type { id:"ORDER_SUBMIT", contract:["CONTRACT.ORDER_SUBMIT"] }
++type ORDER_SUBMIT = "UNSPECIFIED"
++@Type { id:"PAYMENT_AND_FULFILL", contract:["CONTRACT.PAYMENT_AND_FULFILL"] }
++type PAYMENT_AND_FULFILL = "UNSPECIFIED"
++@Type { id:"PAYMENT_RESULT", contract:["CONTRACT.PAYMENT_RESULT"] }
++type PAYMENT_RESULT = "UNSPECIFIED"

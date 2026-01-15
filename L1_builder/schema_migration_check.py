@@ -211,6 +211,7 @@ def main() -> int:
     drafts_root = project_root / "drafts"
     intent_root = drafts_root / "intent"
     ledger_root = drafts_root / "ledger"
+    skip_draft_names = {"contract_map.yaml"}
     draft_files = _collect_yaml_files(
         drafts_root,
         project_root,
@@ -218,6 +219,8 @@ def main() -> int:
         "drafts",
         exclude_dirs=[intent_root, ledger_root],
     )
+    if skip_draft_names:
+        draft_files = [path for path in draft_files if path.name not in skip_draft_names]
     intent_files = _collect_yaml_files(intent_root, project_root, diags, "intent")
 
     decision_files: list[Path] = []

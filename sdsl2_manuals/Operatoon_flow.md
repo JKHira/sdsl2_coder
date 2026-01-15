@@ -144,6 +144,11 @@ L1 の中核は、次の三点セットです。
 	3.	証拠が揃う（decisions/evidence.yaml）
 → これが揃うと READINESS-CHECK が PASSし、Promote が安全に回せます
 
+Edge Intent と Contract Map の明示入力
+	•	edge_intents_proposed は intent_edge_builder（明示入力YAML）で生成し、diff-only で intent に反映する
+	•	contract_map は contract_map_builder（明示入力YAML）で生成し、drafts/contract_map.yaml に diff-only で反映する
+	•	drafts/contract_map.yaml は Draft スキーマ対象外のため、Operational Gate の draft_lint / schema_migration_check では検証対象にしない
+
 Operational Gate は、duplicate_key_lint / draft_lint / intent_lint / schema_migration_check / decisions_lint / evidence_lint / evidence_repair / readiness_check /
 contract_resolution_lint / contract_token_bind_check / no_ssot_promotion_check / token_registry_check を順に実行し、policy の gate severity で FAIL/DIAG/IGNORE を決めます。
 contract_resolution_lint / contract_token_bind_check は policy 未指定時は DIAG が既定です。
@@ -243,9 +248,17 @@ TS 側は、SDSL2 と同列の SSOT ではなく、別ドメインの権威と�
 	•	OUTPUT/ssot/ssot_registry.json
 	•	OUTPUT/ssot/contract_registry.json
 
-Registry 自体は token_registry_gen で生成し、ssot_registry_map.json で対応付けする。
+Registry 自体は token_registry_gen で生成し、decisions の registry_map で対応付けする。
 publish では l2_gate_runner --publish --build-ssot を使い、definitions 出力と registry を先に確定させる。
 project_root と kernel_root が異なる場合は --kernel-root を指定する。
+
+Registry Map（明示入力）
+	•	decisions/contract_registry_map.yaml
+	•	decisions/ssot_registry_map.yaml
+	•	L1 では UNRESOLVED#/ を許容（DIAG）、L2 publish では UNRESOLVED#/ を禁止（FAIL）
+	•	L1 では token_registry_gen に --contract-map / --ssot-map を指定して生成する
+	•	L2 publish では build_ssot_definitions / contract_definitions_gen で OUTPUT/ssot/*_registry_map.json を確定し、token_registry_gen は map 未指定で生成する
+	•	contract_registry_map の target は OUTPUT/ssot/contract_definitions.json#/tokens/CONTRACT.* を基準に解決する
 
 ここで “完成形” に向かう進化として重要なのは、非TSコンシューマは TS ソースを直接 import しないことです。
 必ず JSON（配布境界）か、そこから生成したバインディングを使います。

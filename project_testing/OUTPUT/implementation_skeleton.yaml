@@ -1,0 +1,8 @@
+schema_version: "1.0"
+source_rev: 9310e4a1c7eecd55322fdf395e0643501388a6e1
+input_hash: "sha256:02ab1a1e806a1b3116d917c40ee449300a9cb1a830db4fd5060ac0dbb00c8e5b"
+generator_id: L2_builder.implementation_skeleton_gen
+structures:
+  []
+rules:
+  - API_RULE

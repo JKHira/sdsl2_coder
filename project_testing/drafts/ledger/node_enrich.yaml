@@ -1,4 +1,13 @@
 nodes:
+  - id: EXTERNAL_CLIENT
+    summary: "User client entrypoint"
+    io: "https:order"
   - id: ORDER_API
     summary: "Order intake and orchestration"
     io: "http:order_api"
+  - id: INVENTORY_SERVICE
+    summary: "Inventory reservation service"
+    io: "http:inventory_api"
+  - id: PAYMENT_FULFILLMENT
+    summary: "Payment and fulfillment service"
+    io: "http:payment_fulfillment_api"

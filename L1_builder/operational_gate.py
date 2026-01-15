@@ -120,10 +120,13 @@ def _list_draft_files(drafts_root: Path) -> list[Path]:
         return files
     intent_root = drafts_root / "intent"
     ledger_root = drafts_root / "ledger"
+    skip_names = {"contract_map.yaml"}
     for path in sorted(drafts_root.rglob("*.yaml")):
         if intent_root in path.parents:
             continue
         if ledger_root in path.parents:
+            continue
+        if path.name in skip_names:
             continue
         if path.is_file():
             files.append(path)

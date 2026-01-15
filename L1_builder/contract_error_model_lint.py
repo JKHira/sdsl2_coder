@@ -461,7 +461,7 @@ def main() -> int:
                         expr_parts.append(after)
                     awaiting_equals = False
                 continue
-            if stripped:
+            if stripped and not stripped.startswith("@"):
                 expr_parts.append(stripped)
         if current_name is not None:
             expr = " ".join(part.strip() for part in expr_parts if part.strip())

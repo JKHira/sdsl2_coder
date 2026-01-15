@@ -1,10 +1,18 @@
 @File { profile:"contract", id_prefix:"P0_C_ORDER_FLOW" }
-
-@Type { id:"ERROR_CODE" } type ERROR_CODE = "INVENTORY_UNAVAILABLE"|"PAYMENT_FAILED"
-@Type { id:"RETRY_POLICY" } type RETRY_POLICY = "NO_RETRY"|"RETRY_WITH_BACKOFF"
-
-@Function { id:"RESERVE_INVENTORY" } f ReserveInventory() -> s { }
-@Function { id:"PAY_AND_FULFILL" } f PayAndCreateFulfillment() -> s { }
-
-@Rule { id:"AUTHZ_RESERVE_INVENTORY", bind:@Function.RESERVE_INVENTORY, contract:["CONTRACT.RESERVE_INVENTORY"] }
-@Rule { id:"AUTHZ_PAY_AND_FULFILL", bind:@Function.PAY_AND_FULFILL, contract:["CONTRACT.PAY_AND_FULFILL"] }
+@DocMeta { id:"DOC_META", desc:"gen:contract_scaffold_gen_v0_1;rev:9310e4a1c7eecd55322fdf395e0643501388a6e1;input:sha256:3f286279e11e4e6966ed03bb7fa1cadc48422716291d625d2d5986feadfdfa95" }
+@Interface { id:"API" }
+interface API {
+}
+@Rule { id:"API_RULE", bind:@Interface.API }
+@Type { id:"INVENTORY_RESERVE", contract:["CONTRACT.INVENTORY_RESERVE"] }
+type INVENTORY_RESERVE = "UNSPECIFIED"
+@Type { id:"ORDER_SUBMIT", contract:["CONTRACT.ORDER_SUBMIT"] }
+type ORDER_SUBMIT = "UNSPECIFIED"
+@Type { id:"PAYMENT_AND_FULFILL", contract:["CONTRACT.PAYMENT_AND_FULFILL"] }
+type PAYMENT_AND_FULFILL = "UNSPECIFIED"
+@Type { id:"PAYMENT_RESULT", contract:["CONTRACT.PAYMENT_RESULT"] }
+type PAYMENT_RESULT = "UNSPECIFIED"
+@Type { id:"ERROR_CODE" }
+type ERROR_CODE = "UNSPECIFIED"
+@Type { id:"RETRY_POLICY" }
+type RETRY_POLICY = "UNSPECIFIED"

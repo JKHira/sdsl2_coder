@@ -1,5 +1,41 @@
-@File { profile:"topology", id_prefix:"P0_T_ORDER_FLOW_L0", stage:"L0" }
-@Node { id:"EXTERNAL_CLIENT", kind:"service", summary:"User client entrypoint", io:"https:order" }
-@Node { id:"INVENTORY_SERVICE", kind:"service", summary:"Inventory reservation service", io:"http:inventory_api" }
-@Node { id:"ORDER_API", kind:"service", summary:"Order intake and orchestration", io:"http:order_api" }
-@Node { id:"PAYMENT_FULFILLMENT", kind:"service", summary:"Payment and fulfillment service", io:"http:payment_fulfillment_api" }
+@File { profile:"topology", id_prefix:"P0_T_ORDER_FLOW_L0", stage:"L1" }
+@Node { id:"EXTERNAL_CLIENT", kind:"service", summary:"User client entrypoint", io:"https:order"}
+@Node { id:"ORDER_API", kind:"service", summary:"Order intake and orchestration", io:"http:order_api"}
+@Node { id:"INVENTORY_SERVICE", kind:"service", summary:"Inventory reservation service", io:"http:inventory_api"}
+@Node { id:"PAYMENT_FULFILLMENT", kind:"service", summary:"Payment and fulfillment service", io:"http:payment_fulfillment_api"}
+@Edge {
+  id:"CLIENT_TO_ORDER_API",
+  from:@Node.EXTERNAL_CLIENT,
+  to:@Node.ORDER_API,
+  direction:"req",
+  contract_refs:[
+    "CONTRACT.ORDER_SUBMIT",
+  ],
+}
+@Edge {
+  id:"ORDER_TO_INVENTORY",
+  from:@Node.ORDER_API,
+  to:@Node.INVENTORY_SERVICE,
+  direction:"req",
+  contract_refs:[
+    "CONTRACT.INVENTORY_RESERVE",
+  ],
+}
+@Edge {
+  id:"ORDER_TO_PAYMENT",
+  from:@Node.ORDER_API,
+  to:@Node.PAYMENT_FULFILLMENT,
+  direction:"req",
+  contract_refs:[
+    "CONTRACT.PAYMENT_AND_FULFILL",
+  ],
+}
+@Edge {
+  id:"PAYMENT_TO_ORDER",
+  from:@Node.PAYMENT_FULFILLMENT,
+  to:@Node.ORDER_API,
+  direction:"rep",
+  contract_refs:[
+    "CONTRACT.PAYMENT_RESULT",
+  ],
+}

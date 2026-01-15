@@ -1,0 +1,24 @@
+schema_version: "1.0"
+required_paths:
+  - /meta/version
+  - /meta/status
+  - /kernel/token_rules
+  - /kernel/registry_schema
+  - /kernel/distribution_boundary
+  - /tokens
+required_artifacts:
+  - id: ssot_registry
+    pointer: /kernel/required_artifacts/ssot_registry
+  - id: decisions_edges
+    pointer: /kernel/required_artifacts/decisions_edges
+  - id: decisions_contracts
+    pointer: /kernel/required_artifacts/decisions_contracts
+  - id: evidence_map
+    pointer: /kernel/required_artifacts/evidence_map
+  - id: topology_ledger
+    pointer: /kernel/required_artifacts/topology_ledger
+determinism_specs:
+  - id: input_hash
+    pointer: /kernel/determinism/input_hash_spec
+  - id: serialization
+    pointer: /kernel/determinism/serialization_spec

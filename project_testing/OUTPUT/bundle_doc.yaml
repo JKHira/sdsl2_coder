@@ -17,9 +17,9 @@ Invariants:
 Open TODO: {}
 ---
 Supplementary: provenance
-generator: "L2_builder.context_pack_gen"
+generator: "L2_builder.bundle_doc_gen"
 source_rev: "9310e4a1c7eecd55322fdf395e0643501388a6e1"
 inputs:
   - "sdsl2/contract/P0_C_ORDER_FLOW.sdsl2"
   - "sdsl2/topology/P0_T_ORDER_FLOW_L0.sdsl2"
-  - "input_hash:sha256:9b388bcf8c3692f818bd091d0b3aa649069065d5710441ca0dc61ad1afb59a7e"
+  - "input_hash:sha256:e3298beda794f9bbc48686d5f98586ebb3f015bc642a66d51add7166ba5c5018"

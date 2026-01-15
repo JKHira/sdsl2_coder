@@ -7,10 +7,12 @@ file_header:
 nodes:
   - id: "EXTERNAL_CLIENT"
     kind: "service"
-  - id: "INVENTORY_SERVICE"
-    kind: "service"
   - id: "ORDER_API"
+    kind: "service"
+  - id: "INVENTORY_SERVICE"
     kind: "service"
   - id: "PAYMENT_FULFILLMENT"
     kind: "service"
 edges: []
+source:
+  evidence_note: "Test_idea minimal L0 nodes"

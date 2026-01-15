@@ -1,0 +1,48 @@
+--- /Volumes/SSD/Dev_Projects/SDSL2_Coder/project_testing/drafts/intent/P0_T_ORDER_FLOW_L0_intent.yaml
++++ /Volumes/SSD/Dev_Projects/SDSL2_Coder/project_testing/drafts/intent/P0_T_ORDER_FLOW_L0_intent.yaml
+@@ -1,7 +1,7 @@
+ schema_version: "1.0"
+ source_rev: 9310e4a1c7eecd55322fdf395e0643501388a6e1
+-input_hash: "sha256:c209d71237c62da0a246ff3c29462133648c413fd0e69b46199577cabaf41963"
+-generator_id: intent_template_gen_v0_1
++input_hash: "sha256:20e75c9e8000e7a1a51f117471b83d833664a3c4d52a210b5233a859f983e751"
++generator_id: intent_edge_builder_v0_1
+ scope:
+   kind: file
+   value: sdsl2/topology/P0_T_ORDER_FLOW_L0.sdsl2
+@@ -19,7 +19,34 @@
+     id: PAYMENT_FULFILLMENT
+     kind: service
+ edge_intents_proposed:
+-  []
++  -
++    id: CLIENT_TO_ORDER_API
++    from: EXTERNAL_CLIENT
++    to: ORDER_API
++    direction: req
++    channel: http
++    note: Place order
++  -
++    id: ORDER_TO_INVENTORY
++    from: ORDER_API
++    to: INVENTORY_SERVICE
++    direction: req
++    channel: rpc
++    note: Reserve inventory
++  -
++    id: ORDER_TO_PAYMENT
++    from: ORDER_API
++    to: PAYMENT_FULFILLMENT
++    direction: req
++    channel: rpc
++    note: Pay and create fulfillment
++  -
++    id: PAYMENT_TO_ORDER
++    from: PAYMENT_FULFILLMENT
++    to: ORDER_API
++    direction: rep
++    channel: rpc
++    note: Payment result
+ questions:
+   []
+ conflicts:

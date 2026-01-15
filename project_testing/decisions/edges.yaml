@@ -1,21 +1,37 @@
 schema_version: "1.0"
 provenance:
-  author: "system"
-  reviewed_by: "system"
-  source_link: "docs/order_flow_evidence.md"
+  author: UNSPECIFIED
+  reviewed_by: UNSPECIFIED
+  source_link: "gen:decisions_from_intent_gen_v0_1;rev:9310e4a1c7eecd55322fdf395e0643501388a6e1;input:sha256:59ea7e50c0954e08b6991271c91ba15cfa055f2e3e816edd896dc195010eb069"
 scope:
-  kind: "file"
-  value: "sdsl2/topology/P0_T_ORDER_FLOW_L0.sdsl2"
+  kind: file
+  value: sdsl2/topology/P0_T_ORDER_FLOW_L0.sdsl2
 edges:
-  - id: "ORDER_TO_INVENTORY_RESERVE"
-    from: "ORDER_API"
-    to: "INVENTORY_SERVICE"
-    direction: "req"
+  -
+    id: CLIENT_TO_ORDER_API
+    from: EXTERNAL_CLIENT
+    to: ORDER_API
+    direction: req
     contract_refs:
-      - "CONTRACT.RESERVE_INVENTORY"
-  - id: "ORDER_TO_PAYMENT_FULFILL"
-    from: "ORDER_API"
-    to: "PAYMENT_FULFILLMENT"
-    direction: "req"
+      - CONTRACT.ORDER_SUBMIT
+  -
+    id: ORDER_TO_INVENTORY
+    from: ORDER_API
+    to: INVENTORY_SERVICE
+    direction: req
     contract_refs:
-      - "CONTRACT.PAY_AND_FULFILL"
+      - CONTRACT.INVENTORY_RESERVE
+  -
+    id: ORDER_TO_PAYMENT
+    from: ORDER_API
+    to: PAYMENT_FULFILLMENT
+    direction: req
+    contract_refs:
+      - CONTRACT.PAYMENT_AND_FULFILL
+  -
+    id: PAYMENT_TO_ORDER
+    from: PAYMENT_FULFILLMENT
+    to: ORDER_API
+    direction: rep
+    contract_refs:
+      - CONTRACT.PAYMENT_RESULT

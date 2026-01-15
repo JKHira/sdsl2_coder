@@ -14,6 +14,7 @@ Non-scope: Auto-apply, migrations, or any SSOT edits (diff-only only where speci
 - `ssot_kernel_coverage_check.py`: Validate SSOT kernel coverage against policy/ssot_kernel_profile.yaml.
 - `ssot_kernel_lint.py`: SSOT kernel lint (publish-time).
 - `ssot_registry_consistency_check.py`: Validate registry/SSOT consistency (publish-time).
+- `contract_definitions_gen.py`: Generate OUTPUT/ssot/contract_definitions.json and contract_registry_map.json.
 - `token_registry_gen.py`: Generate OUTPUT/ssot/ssot_registry.json and contract_registry.json.
 - `l2_gate_runner.py`: Run L1 operational gate, contract_sdsl_lint, drift_check, exception_lint, and (publish) conformance/freshness.
 
@@ -45,3 +46,5 @@ Non-scope: Auto-apply, migrations, or any SSOT edits (diff-only only where speci
 - token_registry_gen accepts optional map inputs and can emit UNRESOLVED#/ entries.
 - ssot_definitions.json and ssot_registry_map.json are produced by ssot_kernel_builder/build_ssot_definitions.py.
 - l2_gate_runner uses --publish to run ssot_kernel_lint, ssot_registry_consistency_check, conformance_check, and freshness_check. 
+- Pre-publish: token_registry_gen may use decisions/*_registry_map.yaml and allow UNRESOLVED#/ (DIAG).
+- Publish: token_registry_gen should run without --allow-unresolved and use OUTPUT/ssot/*_registry_map.json.

@@ -18,9 +18,11 @@ Purpose: L1 promotion tooling (Decisions + Evidence -> SSOT patch) and L1 operat
 - `evidence_template_gen.py` -> Generate evidence skeleton from decisions/edges.yaml.
 - `evidence_hash_helper.py` -> Compute/verify content_hash for evidence.
 - `evidence_repair.py` -> Diff-only evidence repair proposal.
+- `intent_edge_builder.py` -> Diff-only edge_intents_proposed builder from explicit YAML.
 - `decisions_from_intent_gen.py` -> Diff-only decisions/edges.yaml generator from intent.
 - `evidence_fill_gen.py` -> Diff-only content_hash updater for evidence.yaml.
 - `contract_scaffold_gen.py` -> Diff-only contract stub generator for missing declarations.
+- `contract_map_builder.py` -> Diff-only contract_map generator from explicit YAML.
 - `schema_migration_check.py` -> Detect schema_version major mismatch.
 - `drift_check.py` -> Detect SSOT vs decisions drift.
 - `token_registry_check.py` -> Validate SSOT.* / CONTRACT.* tokens vs registries.
@@ -32,6 +34,7 @@ Purpose: L1 promotion tooling (Decisions + Evidence -> SSOT patch) and L1 operat
 - SSOT lives under sdsl2/ only; never write SSOT directly.
 - Diff outputs should stay under OUTPUT/.
 - Intent input is restricted to drafts/intent/.
+- drafts/contract_map.yaml is not a draft schema target and is excluded from draft_lint and schema_migration_check in operational_gate.
 - token_registry_check allows UNRESOLVED#/ by default; use --fail-on-unresolved to hard-fail.
 - Diff-only generators emit unified diffs (stdout or `--out`) and do not apply changes.
 
@@ -58,6 +61,10 @@ Purpose: L1 promotion tooling (Decisions + Evidence -> SSOT patch) and L1 operat
   - python3 L1_builder/promote.py --project-root project_x --out OUTPUT/promote.patch
 - Decisions from intent (diff only):
   - python3 L1_builder/decisions_from_intent_gen.py --input drafts/intent --contract-map drafts/contract_map.yaml --project-root project_x
+- Intent edge builder (diff only):
+  - python3 L1_builder/intent_edge_builder.py --intent drafts/intent/example_intent.yaml --edges drafts/intent_edges.yaml --project-root project_x
+- Contract map builder (diff only):
+  - python3 L1_builder/contract_map_builder.py --input drafts/contract_map_input.yaml --project-root project_x
 - Evidence fill (diff only):
   - python3 L1_builder/evidence_fill_gen.py --project-root project_x
 - Contract scaffold (diff only):

@@ -1,33 +1,59 @@
 schema_version: "1.0"
-source_rev: 496f615000216066724be8d0ce151ad138af0b35
-input_hash: "sha256:e798aec96d2dc626cf970299bb9b07c20481739a5724277c7444955732fffc6c"
+source_rev: 9310e4a1c7eecd55322fdf395e0643501388a6e1
+input_hash: "sha256:3f286279e11e4e6966ed03bb7fa1cadc48422716291d625d2d5986feadfdfa95"
 scope:
   kind: file
   value: sdsl2/topology/P0_T_ORDER_FLOW_L0.sdsl2
 evidence:
-  ORDER_TO_INVENTORY_RESERVE:
+  CLIENT_TO_ORDER_API:
     -
       source_path: "docs/order_flow_evidence.md"
-      locator: "L1-L1"
-      content_hash: "sha256:b3f402277aacc26ae429ee7eebb61b424542129b3e58b749210de9bfaa13b7a0"
+      locator: "L3-L4"
+      content_hash: "sha256:7cdc45ce90b75911f22ab54e1ba996ba40c8a92865f457f2b8d3ca3513d29850"
       claims:
         -
           kind: edge
-          decision_id: ORDER_TO_INVENTORY_RESERVE
+          decision_id: CLIENT_TO_ORDER_API
         -
           kind: contract_ref
-          decision_id: ORDER_TO_INVENTORY_RESERVE
-          value: CONTRACT.RESERVE_INVENTORY
-  ORDER_TO_PAYMENT_FULFILL:
+          decision_id: CLIENT_TO_ORDER_API
+          value: CONTRACT.ORDER_SUBMIT
+  ORDER_TO_INVENTORY:
     -
       source_path: "docs/order_flow_evidence.md"
-      locator: "L2-L2"
-      content_hash: "sha256:d15baa1f66bdaa7c1f023990cd6b76f0f6d993ac32844fc9c48ceca0fa64c9f8"
+      locator: "L6-L7"
+      content_hash: "sha256:257a22ba23974ed78ca3d2049f50d4cb190f1142f3262fbc8e99f0fcf8b83d34"
       claims:
         -
           kind: edge
-          decision_id: ORDER_TO_PAYMENT_FULFILL
+          decision_id: ORDER_TO_INVENTORY
         -
           kind: contract_ref
-          decision_id: ORDER_TO_PAYMENT_FULFILL
-          value: CONTRACT.PAY_AND_FULFILL
+          decision_id: ORDER_TO_INVENTORY
+          value: CONTRACT.INVENTORY_RESERVE
+  ORDER_TO_PAYMENT:
+    -
+      source_path: "docs/order_flow_evidence.md"
+      locator: "L9-L10"
+      content_hash: "sha256:624c853e91c9106f33774cd0855cd998c28ae3997762c2f02517a230b2e6283c"
+      claims:
+        -
+          kind: edge
+          decision_id: ORDER_TO_PAYMENT
+        -
+          kind: contract_ref
+          decision_id: ORDER_TO_PAYMENT
+          value: CONTRACT.PAYMENT_AND_FULFILL
+  PAYMENT_TO_ORDER:
+    -
+      source_path: "docs/order_flow_evidence.md"
+      locator: "L12-L13"
+      content_hash: "sha256:c58333aca38bef1174d49b0b78790adef0d5aac20ca79a10958ed8faf1114ca8"
+      claims:
+        -
+          kind: edge
+          decision_id: PAYMENT_TO_ORDER
+        -
+          kind: contract_ref
+          decision_id: PAYMENT_TO_ORDER
+          value: CONTRACT.PAYMENT_RESULT

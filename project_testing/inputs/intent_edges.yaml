@@ -1,0 +1,25 @@
+edges:
+  - id: CLIENT_TO_ORDER_API
+    from: EXTERNAL_CLIENT
+    to: ORDER_API
+    direction: req
+    channel: http
+    note: Place order
+  - id: ORDER_TO_INVENTORY
+    from: ORDER_API
+    to: INVENTORY_SERVICE
+    direction: req
+    channel: rpc
+    note: Reserve inventory
+  - id: ORDER_TO_PAYMENT
+    from: ORDER_API
+    to: PAYMENT_FULFILLMENT
+    direction: req
+    channel: rpc
+    note: Pay and create fulfillment
+  - id: PAYMENT_TO_ORDER
+    from: PAYMENT_FULFILLMENT
+    to: ORDER_API
+    direction: rep
+    channel: rpc
+    note: Payment result

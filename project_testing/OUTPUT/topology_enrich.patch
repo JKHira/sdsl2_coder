@@ -1,6 +1,12 @@
---- /Volumes/SSD/Dev_Projects/SDSL2_Coder/project_testing/sdsl2/topology/P0_T_ORDER_FLOW_L0_ENRICH_TEST.sdsl2
-+++ /Volumes/SSD/Dev_Projects/SDSL2_Coder/project_testing/sdsl2/topology/P0_T_ORDER_FLOW_L0_ENRICH_TEST.sdsl2
-@@ -1,2 +1,2 @@
- @File { profile:"topology", id_prefix:"P0_T_ORDER_FLOW_L0_TEST", stage:"L0" }
+--- /Volumes/SSD/Dev_Projects/SDSL2_Coder/project_testing/sdsl2/topology/P0_T_ORDER_FLOW_L0.sdsl2
++++ /Volumes/SSD/Dev_Projects/SDSL2_Coder/project_testing/sdsl2/topology/P0_T_ORDER_FLOW_L0.sdsl2
+@@ -1,5 +1,5 @@
+ @File { profile:"topology", id_prefix:"P0_T_ORDER_FLOW_L0", stage:"L0" }
+-@Node { id:"EXTERNAL_CLIENT", kind:"service" }
 -@Node { id:"ORDER_API", kind:"service" }
+-@Node { id:"INVENTORY_SERVICE", kind:"service" }
+-@Node { id:"PAYMENT_FULFILLMENT", kind:"service" }
++@Node { id:"EXTERNAL_CLIENT", kind:"service", summary:"User client entrypoint", io:"https:order"}
 +@Node { id:"ORDER_API", kind:"service", summary:"Order intake and orchestration", io:"http:order_api"}
++@Node { id:"INVENTORY_SERVICE", kind:"service", summary:"Inventory reservation service", io:"http:inventory_api"}
++@Node { id:"PAYMENT_FULFILLMENT", kind:"service", summary:"Payment and fulfillment service", io:"http:payment_fulfillment_api"}

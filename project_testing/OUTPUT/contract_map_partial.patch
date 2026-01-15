@@ -1,0 +1,18 @@
+--- /Volumes/SSD/Dev_Projects/SDSL2_Coder/project_testing/drafts/contract_map.yaml
++++ /Volumes/SSD/Dev_Projects/SDSL2_Coder/project_testing/drafts/contract_map.yaml
+@@ -3,15 +3,3 @@
+     id: CLIENT_TO_ORDER_API
+     contract_refs:
+       - CONTRACT.ORDER_SUBMIT
+-  -
+-    id: ORDER_TO_INVENTORY
+-    contract_refs:
+-      - CONTRACT.INVENTORY_RESERVE
+-  -
+-    id: ORDER_TO_PAYMENT
+-    contract_refs:
+-      - CONTRACT.PAYMENT_AND_FULFILL
+-  -
+-    id: PAYMENT_TO_ORDER
+-    contract_refs:
+-      - CONTRACT.PAYMENT_RESULT

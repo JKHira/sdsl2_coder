@@ -1,0 +1,4 @@
+edges:
+  - id: CLIENT_TO_ORDER_API
+    contract_refs:
+      - CONTRACT.ORDER_SUBMIT
