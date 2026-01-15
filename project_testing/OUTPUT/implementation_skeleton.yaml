@@ -1,8 +1,13 @@
 schema_version: "1.0"
-source_rev: 9310e4a1c7eecd55322fdf395e0643501388a6e1
-input_hash: "sha256:02ab1a1e806a1b3116d917c40ee449300a9cb1a830db4fd5060ac0dbb00c8e5b"
+source_rev: 72160814ad75b6b909a0ebeda133748c1d3a8311
+input_hash: "sha256:a5151329847911ce885e1e789e52b107d59e6a12dc9b290aa60f6ae52eec905a"
 generator_id: L2_builder.implementation_skeleton_gen
 structures:
   []
 rules:
   - API_RULE
+  - AUTHZ_API
+  - COMPENSATION_PAYMENT
+  - INVARIANT_INVENTORY_RESERVE
+  - INVARIANT_ORDER_SUBMIT
+  - INVARIANT_PAYMENT_RESULT

@@ -1,0 +1,9 @@
+edges:
+  - id: CLIENT_TO_ORDER_API
+    channel: sync_call
+  - id: ORDER_TO_INVENTORY
+    channel: sync_call
+  - id: ORDER_TO_PAYMENT
+    channel: sync_call
+  - id: PAYMENT_TO_ORDER
+    channel: sync_call

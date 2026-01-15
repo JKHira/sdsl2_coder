@@ -14,7 +14,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from L2_builder.common import has_symlink_parent
+from L2_builder.common import ensure_inside, has_symlink_parent, resolve_path
+from sdslv2_builder.errors import Diagnostic, json_pointer
 from sdslv2_builder.op_yaml import load_yaml
 from sdslv2_builder.policy_utils import get_gate_severity, load_policy
 
@@ -82,6 +83,11 @@ def _run_drift_gate(cmd: list[str], policy: dict, verbose: bool, cwd: Path) -> i
     print(proc.stderr, end="", file=sys.stderr)
     print("[DIAG] drift_check", file=sys.stderr)
     return 0
+
+
+def _print_diags(diags: list[Diagnostic]) -> None:
+    payload = [d.to_dict() for d in diags]
+    print(json.dumps(payload, ensure_ascii=False, indent=2), file=sys.stderr)
 
 
 DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
@@ -177,6 +183,22 @@ def main() -> int:
         help="Run conformance_check and freshness_check for publish",
     )
     ap.add_argument(
+        "--context-input",
+        default=None,
+        help="Topology .sdsl2 input for context_pack_gen (required with --publish)",
+    )
+    ap.add_argument(
+        "--context-target",
+        default=None,
+        help="Target @Node.<RELID> for context_pack_gen (required with --publish)",
+    )
+    ap.add_argument(
+        "--context-hops",
+        default=None,
+        type=int,
+        help="Neighbor hops for context_pack_gen (optional)",
+    )
+    ap.add_argument(
         "--build-ssot",
         action="store_true",
         help="Build SSOT definitions and registries before running gates",
@@ -204,7 +226,7 @@ def main() -> int:
     else:
         kernel_root = project_root
     py = sys.executable
-    policy_path = Path(args.policy_path) if args.policy_path else None
+    policy_path = resolve_path(project_root, args.policy_path) if args.policy_path else None
     policy_result = load_policy(policy_path, project_root)
     if policy_result.diagnostics:
         payload = [d.to_dict() for d in policy_result.diagnostics]
@@ -243,6 +265,19 @@ def main() -> int:
         ]
         if _run_gate(registry_cmd, None, policy, args.verbose, project_root) != 0:
             return 2
+    elif args.publish:
+        _print_diags(
+            [
+                Diagnostic(
+                    code="E_L2_GATE_BUILD_SSOT_REQUIRED",
+                    message="--build-ssot is required with --publish",
+                    expected="--build-ssot",
+                    got="missing",
+                    path=json_pointer("publish"),
+                )
+            ]
+        )
+        return 2
 
     l1_cmd = [
         py,
@@ -339,6 +374,136 @@ def main() -> int:
             str(project_root),
         ]
         if _run_gate(registry_cmd, "ssot_registry_consistency", policy, args.verbose, project_root) != 0:
+            return 2
+
+        if not args.context_input or not args.context_target:
+            _print_diags(
+                [
+                    Diagnostic(
+                        code="E_L2_GATE_CONTEXT_PACK_REQUIRED",
+                        message="context_input and context_target are required with --publish",
+                        expected="--context-input + --context-target",
+                        got="missing",
+                        path=json_pointer("context"),
+                    )
+                ]
+            )
+            return 2
+        if not isinstance(args.context_target, str) or not args.context_target.strip():
+            _print_diags(
+                [
+                    Diagnostic(
+                        code="E_L2_GATE_CONTEXT_TARGET_INVALID",
+                        message="context_target must be non-empty string",
+                        expected="@Node.<RELID>",
+                        got=str(args.context_target),
+                        path=json_pointer("context", "target"),
+                    )
+                ]
+            )
+            return 2
+        context_input = resolve_path(project_root, args.context_input)
+        try:
+            ensure_inside(project_root, context_input, "E_L2_GATE_CONTEXT_OUTSIDE_PROJECT")
+        except ValueError:
+            _print_diags(
+                [
+                    Diagnostic(
+                        code="E_L2_GATE_CONTEXT_OUTSIDE_PROJECT",
+                        message="context_input must be under project_root",
+                        expected="project_root/...",
+                        got=str(context_input),
+                        path=json_pointer("context", "input"),
+                    )
+                ]
+            )
+            return 2
+        topo_root = (project_root / "sdsl2" / "topology").resolve()
+        try:
+            ensure_inside(topo_root, context_input, "E_L2_GATE_CONTEXT_NOT_SSOT")
+        except ValueError:
+            _print_diags(
+                [
+                    Diagnostic(
+                        code="E_L2_GATE_CONTEXT_NOT_SSOT",
+                        message="context_input must be under sdsl2/topology",
+                        expected="sdsl2/topology/...",
+                        got=str(context_input),
+                        path=json_pointer("context", "input"),
+                    )
+                ]
+            )
+            return 2
+        if context_input.is_symlink() or has_symlink_parent(context_input, project_root):
+            _print_diags(
+                [
+                    Diagnostic(
+                        code="E_L2_GATE_CONTEXT_INPUT_SYMLINK",
+                        message="context_input must not be symlink",
+                        expected="non-symlink",
+                        got=str(context_input),
+                        path=json_pointer("context", "input"),
+                    )
+                ]
+            )
+            return 2
+        if not context_input.exists() or context_input.is_dir():
+            _print_diags(
+                [
+                    Diagnostic(
+                        code="E_L2_GATE_CONTEXT_INPUT_INVALID",
+                        message="context_input must be an existing file",
+                        expected="existing .sdsl2 file",
+                        got=str(context_input),
+                        path=json_pointer("context", "input"),
+                    )
+                ]
+            )
+            return 2
+        if context_input.suffix != ".sdsl2":
+            _print_diags(
+                [
+                    Diagnostic(
+                        code="E_L2_GATE_CONTEXT_INPUT_INVALID",
+                        message="context_input must be .sdsl2",
+                        expected=".sdsl2",
+                        got=str(context_input),
+                        path=json_pointer("context", "input"),
+                    )
+                ]
+            )
+            return 2
+        context_cmd = [
+            py,
+            str(ROOT / "L2_builder" / "context_pack_gen.py"),
+            "--input",
+            str(context_input),
+            "--target",
+            str(args.context_target),
+            "--project-root",
+            str(project_root),
+        ]
+        if args.context_hops is not None:
+            context_cmd.extend(["--hops", str(args.context_hops)])
+        if _run_gate(context_cmd, None, policy, args.verbose, project_root) != 0:
+            return 2
+
+        bundle_cmd = [
+            py,
+            str(ROOT / "L2_builder" / "bundle_doc_gen.py"),
+            "--project-root",
+            str(project_root),
+        ]
+        if _run_gate(bundle_cmd, None, policy, args.verbose, project_root) != 0:
+            return 2
+
+        skeleton_cmd = [
+            py,
+            str(ROOT / "L2_builder" / "implementation_skeleton_gen.py"),
+            "--project-root",
+            str(project_root),
+        ]
+        if _run_gate(skeleton_cmd, None, policy, args.verbose, project_root) != 0:
             return 2
 
         conformance_cmd = [

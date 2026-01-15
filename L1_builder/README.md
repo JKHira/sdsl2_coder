@@ -13,6 +13,9 @@ Purpose: L1 promotion tooling (Decisions + Evidence -> SSOT patch) and L1 operat
 - `contract_resolution_lint.py` -> Contract resolution lint (skeleton + bind/dep checks).
 - `contract_token_bind_check.py` -> Validate contract_refs tokens vs contract SSOT.
 - `contract_rule_coverage_check.py` -> Check decisions contract_refs coverage and rule naming rules.
+- `contract_rule_builder.py` -> Diff-only rule insertion for contract files from explicit YAML.
+- `contract_api_builder.py` -> Diff-only contract API declarations (Interface/Function/Type/etc.) from explicit YAML.
+- `contract_error_model_builder.py` -> Diff-only ERROR_CODE/RETRY_POLICY string unions from explicit YAML.
 - `contract_error_model_lint.py` -> Validate ERROR_CODE / RETRY_POLICY type alias formats.
 - `intent_lint.py` -> Validate drafts/intent/*.yaml.
 - `evidence_template_gen.py` -> Generate evidence skeleton from decisions/edges.yaml.
@@ -36,7 +39,7 @@ Purpose: L1 promotion tooling (Decisions + Evidence -> SSOT patch) and L1 operat
 - Intent input is restricted to drafts/intent/.
 - drafts/contract_map.yaml is not a draft schema target and is excluded from draft_lint and schema_migration_check in operational_gate.
 - token_registry_check allows UNRESOLVED#/ by default; use --fail-on-unresolved to hard-fail.
-- Diff-only generators emit unified diffs (stdout or `--out`) and do not apply changes.
+- Diff-only generators emit Tool Result Envelopes (stdout JSON-only) and write unified diffs to OUTPUT by default; they do not apply changes.
 
 ## Usage (examples)
 - Operational gate (policy optional):

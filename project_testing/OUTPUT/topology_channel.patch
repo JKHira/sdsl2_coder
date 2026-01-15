@@ -1,0 +1,32 @@
+--- /Volumes/SSD/Dev_Projects/SDSL2_Coder/project_testing/sdsl2/topology/P0_T_ORDER_FLOW_L0.sdsl2
++++ /Volumes/SSD/Dev_Projects/SDSL2_Coder/project_testing/sdsl2/topology/P0_T_ORDER_FLOW_L0.sdsl2
+@@ -11,6 +11,7 @@
+   contract_refs:[
+     "CONTRACT.ORDER_SUBMIT",
+   ],
++  channel:"sync_call",
+ }
+ @Edge {
+   id:"ORDER_TO_INVENTORY",
+@@ -20,6 +21,7 @@
+   contract_refs:[
+     "CONTRACT.INVENTORY_RESERVE",
+   ],
++  channel:"sync_call",
+ }
+ @Edge {
+   id:"ORDER_TO_PAYMENT",
+@@ -29,6 +31,7 @@
+   contract_refs:[
+     "CONTRACT.PAYMENT_AND_FULFILL",
+   ],
++  channel:"sync_call",
+ }
+ @Edge {
+   id:"PAYMENT_TO_ORDER",
+@@ -38,4 +41,5 @@
+   contract_refs:[
+     "CONTRACT.PAYMENT_RESULT",
+   ],
++  channel:"sync_call",
+ }

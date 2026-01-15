@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+# ruff: noqa: E402
 
 from __future__ import annotations
 
@@ -20,6 +21,10 @@ from sdslv2_builder.io_atomic import atomic_write_text
 from sdslv2_builder.op_yaml import DuplicateKey, dump_yaml, load_yaml, load_yaml_with_duplicates
 from sdslv2_builder.refs import parse_contract_ref
 
+TOOL_NAME = "decisions_from_intent_gen"
+STAGE = "L1"
+DEFAULT_OUT_REL = Path("OUTPUT") / "decisions_edges.patch"
+
 
 def _diag(
     diags: list[Diagnostic],
@@ -34,9 +39,39 @@ def _diag(
     )
 
 
-def _print_diags(diags: list[Diagnostic]) -> None:
-    payload = [d.to_dict() for d in diags]
-    print(json.dumps(payload, ensure_ascii=False, indent=2), file=sys.stderr)
+def _emit_result(
+    status: str,
+    diags: list[Diagnostic],
+    inputs: list[str],
+    outputs: list[str],
+    diff_paths: list[str],
+    source_rev: str | None = None,
+    input_hash: str | None = None,
+    summary: str | None = None,
+    next_actions: list[str] | None = None,
+    gaps_missing: list[str] | None = None,
+    gaps_invalid: list[str] | None = None,
+) -> None:
+    codes = sorted({diag.code for diag in diags})
+    payload = {
+        "status": status,
+        "tool": TOOL_NAME,
+        "stage": STAGE,
+        "source_rev": source_rev,
+        "input_hash": input_hash,
+        "inputs": inputs,
+        "outputs": outputs,
+        "diff_paths": diff_paths,
+        "diagnostics": {"count": len(diags), "codes": codes},
+        "gaps": {
+            "missing": gaps_missing or [],
+            "invalid": gaps_invalid or [],
+        },
+        "next_actions": next_actions or [],
+    }
+    print(json.dumps(payload, ensure_ascii=False))
+    if summary:
+        print(summary, file=sys.stderr)
 
 
 def _resolve_path(base: Path, raw: str) -> Path:
@@ -44,6 +79,13 @@ def _resolve_path(base: Path, raw: str) -> Path:
     if not path.is_absolute():
         path = (base / path).resolve()
     return path
+
+
+def _rel_path(project_root: Path, path: Path) -> str:
+    try:
+        return path.resolve().relative_to(project_root.resolve()).as_posix()
+    except ValueError:
+        return str(path)
 
 
 def _has_symlink_parent(path: Path, stop: Path) -> bool:
@@ -213,7 +255,11 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--input", required=True, help="Intent YAML file or dir")
     ap.add_argument("--target", default="decisions/edges.yaml", help="Decisions target path")
-    ap.add_argument("--out", default=None, help="Unified diff output path (default: stdout)")
+    ap.add_argument(
+        "--out",
+        default=None,
+        help="Unified diff output path (default: OUTPUT/decisions_edges.patch)",
+    )
     ap.add_argument("--contract-map", default=None, help="YAML map of edge id -> contract_refs")
     ap.add_argument("--omit-without-contract", action="store_true", help="Omit edges with no contract_refs")
     ap.add_argument(
@@ -232,8 +278,15 @@ def main() -> int:
 
     project_root = Path(args.project_root).resolve() if args.project_root else ROOT
     intent_root = project_root / "drafts" / "intent"
+    input_path = _resolve_path(project_root, args.input)
+    out_path = _resolve_path(project_root, args.out) if args.out else project_root / DEFAULT_OUT_REL
+    inputs = [_rel_path(project_root, input_path)]
+    outputs = [_rel_path(project_root, out_path)]
+    diff_paths = [_rel_path(project_root, out_path)]
+
     if intent_root.is_symlink() or _has_symlink_parent(intent_root, project_root):
-        _print_diags(
+        _emit_result(
+            "fail",
             [
                 Diagnostic(
                     code="E_DECISIONS_FROM_INTENT_INTENT_ROOT_SYMLINK",
@@ -242,13 +295,17 @@ def main() -> int:
                     got=str(intent_root),
                     path=json_pointer("input"),
                 )
-            ]
+            ],
+            inputs,
+            outputs,
+            diff_paths,
+            summary=f"{TOOL_NAME}: input root invalid",
         )
         return 2
 
-    input_path = _resolve_path(project_root, args.input)
     if not input_path.exists():
-        _print_diags(
+        _emit_result(
+            "fail",
             [
                 Diagnostic(
                     code="E_DECISIONS_FROM_INTENT_INPUT_NOT_FOUND",
@@ -257,11 +314,16 @@ def main() -> int:
                     got=str(input_path),
                     path=json_pointer("input"),
                 )
-            ]
+            ],
+            inputs,
+            outputs,
+            diff_paths,
+            summary=f"{TOOL_NAME}: input not found",
         )
         return 2
     if input_path.is_symlink() or _has_symlink_parent(input_path, project_root):
-        _print_diags(
+        _emit_result(
+            "fail",
             [
                 Diagnostic(
                     code="E_DECISIONS_FROM_INTENT_INPUT_SYMLINK",
@@ -270,13 +332,18 @@ def main() -> int:
                     got=str(input_path),
                     path=json_pointer("input"),
                 )
-            ]
+            ],
+            inputs,
+            outputs,
+            diff_paths,
+            summary=f"{TOOL_NAME}: input symlink blocked",
         )
         return 2
     try:
         input_path.resolve().relative_to(intent_root.resolve())
     except ValueError:
-        _print_diags(
+        _emit_result(
+            "fail",
             [
                 Diagnostic(
                     code="E_DECISIONS_FROM_INTENT_INPUT_NOT_INTENT_ROOT",
@@ -285,7 +352,11 @@ def main() -> int:
                     got=str(input_path),
                     path=json_pointer("input"),
                 )
-            ]
+            ],
+            inputs,
+            outputs,
+            diff_paths,
+            summary=f"{TOOL_NAME}: input out of scope",
         )
         return 2
 
@@ -294,7 +365,8 @@ def main() -> int:
         for path in sorted(input_path.rglob("*.yaml")):
             if path.is_file():
                 if path.is_symlink() or _has_symlink_parent(path, intent_root):
-                    _print_diags(
+                    _emit_result(
+                        "fail",
                         [
                             Diagnostic(
                                 code="E_DECISIONS_FROM_INTENT_INPUT_SYMLINK",
@@ -303,7 +375,11 @@ def main() -> int:
                                 got=str(path),
                                 path=json_pointer("input"),
                             )
-                        ]
+                        ],
+                        inputs,
+                        outputs,
+                        diff_paths,
+                        summary=f"{TOOL_NAME}: input symlink blocked",
                     )
                     return 2
                 intent_paths.append(path)
@@ -311,7 +387,8 @@ def main() -> int:
         intent_paths = [input_path]
 
     if not intent_paths:
-        _print_diags(
+        _emit_result(
+            "fail",
             [
                 Diagnostic(
                     code="E_DECISIONS_FROM_INTENT_INPUT_EMPTY",
@@ -320,13 +397,18 @@ def main() -> int:
                     got=str(input_path),
                     path=json_pointer("input"),
                 )
-            ]
+            ],
+            inputs,
+            outputs,
+            diff_paths,
+            summary=f"{TOOL_NAME}: input empty",
         )
         return 2
 
     diags: list[Diagnostic] = []
     contract_map: dict[str, list[str]] = {}
     map_path: Path | None = None
+    inputs = [_rel_path(project_root, path) for path in intent_paths]
     if args.contract_map:
         map_path = _resolve_path(project_root, args.contract_map)
         try:
@@ -342,6 +424,7 @@ def main() -> int:
             )
         else:
             contract_map = _load_contract_map(map_path, project_root, diags)
+        inputs.append(_rel_path(project_root, map_path))
     if not args.contract_map and not args.allow_empty_contract_refs and not args.omit_without_contract:
         _diag(
             diags,
@@ -352,7 +435,14 @@ def main() -> int:
             json_pointer("contract_map"),
         )
     if diags:
-        _print_diags(diags)
+        _emit_result(
+            "fail",
+            diags,
+            inputs,
+            outputs,
+            diff_paths,
+            summary=f"{TOOL_NAME}: input validation failed",
+        )
         return 2
 
     try:
@@ -365,15 +455,22 @@ def main() -> int:
             extra_inputs=extra_inputs,
         )
     except (FileNotFoundError, ValueError, OSError, UnicodeDecodeError) as exc:
-        _diag(
-            diags,
-            "E_DECISIONS_FROM_INTENT_INPUT_HASH_FAILED",
-            "input_hash calculation failed",
-            "valid inputs",
-            str(exc),
-            json_pointer("input_hash"),
+        _emit_result(
+            "fail",
+            [
+                Diagnostic(
+                    code="E_DECISIONS_FROM_INTENT_INPUT_HASH_FAILED",
+                    message="input_hash calculation failed",
+                    expected="valid inputs",
+                    got=str(exc),
+                    path=json_pointer("input_hash"),
+                )
+            ],
+            inputs,
+            outputs,
+            diff_paths,
+            summary=f"{TOOL_NAME}: input_hash failed",
         )
-        _print_diags(diags)
         return 2
 
     source_rev = _git_rev(project_root)
@@ -429,6 +526,16 @@ def main() -> int:
             )
             continue
         for idx, intent in enumerate(normalized.get("edge_intents_proposed", [])):
+            if not isinstance(intent, dict):
+                _diag(
+                    diags,
+                    "E_DECISIONS_FROM_INTENT_INVALID",
+                    "edge_intents_proposed entries must be object",
+                    "object",
+                    type(intent).__name__,
+                    json_pointer("input", path_label, "edge_intents_proposed", str(idx)),
+                )
+                continue
             edge_id = intent.get("id", "")
             from_id = intent.get("from", "")
             to_id = intent.get("to", "")
@@ -478,10 +585,20 @@ def main() -> int:
             )
 
     if diags:
-        _print_diags(diags)
+        _emit_result(
+            "fail",
+            diags,
+            inputs,
+            outputs,
+            diff_paths,
+            source_rev=source_rev,
+            input_hash=input_hash.input_hash,
+            summary=f"{TOOL_NAME}: intent processing failed",
+        )
         return 2
     if scope_value is None:
-        _print_diags(
+        _emit_result(
+            "fail",
             [
                 Diagnostic(
                     code="E_DECISIONS_FROM_INTENT_SCOPE_MISSING",
@@ -490,13 +607,20 @@ def main() -> int:
                     got="missing",
                     path=json_pointer("scope"),
                 )
-            ]
+            ],
+            inputs,
+            outputs,
+            diff_paths,
+            source_rev=source_rev,
+            input_hash=input_hash.input_hash,
+            summary=f"{TOOL_NAME}: scope missing",
         )
         return 2
 
     edges_sorted = sorted(edges, key=lambda e: str(e.get("id", "")))
     if not edges_sorted and not args.allow_empty:
-        _print_diags(
+        _emit_result(
+            "fail",
             [
                 Diagnostic(
                     code="E_DECISIONS_FROM_INTENT_EMPTY",
@@ -505,7 +629,13 @@ def main() -> int:
                     got="empty",
                     path=json_pointer("edges"),
                 )
-            ]
+            ],
+            inputs,
+            outputs,
+            diff_paths,
+            source_rev=source_rev,
+            input_hash=input_hash.input_hash,
+            summary=f"{TOOL_NAME}: no edges",
         )
         return 2
 
@@ -524,7 +654,8 @@ def main() -> int:
     try:
         target_path.resolve().relative_to((project_root / "decisions").resolve())
     except ValueError:
-        _print_diags(
+        _emit_result(
+            "fail",
             [
                 Diagnostic(
                     code="E_DECISIONS_FROM_INTENT_TARGET_NOT_DECISIONS",
@@ -533,11 +664,18 @@ def main() -> int:
                     got=str(target_path),
                     path=json_pointer("target"),
                 )
-            ]
+            ],
+            inputs,
+            outputs,
+            diff_paths,
+            source_rev=source_rev,
+            input_hash=input_hash.input_hash,
+            summary=f"{TOOL_NAME}: invalid target",
         )
         return 2
     if target_path.exists() and target_path.is_symlink():
-        _print_diags(
+        _emit_result(
+            "fail",
             [
                 Diagnostic(
                     code="E_DECISIONS_FROM_INTENT_TARGET_SYMLINK",
@@ -546,11 +684,18 @@ def main() -> int:
                     got=str(target_path),
                     path=json_pointer("target"),
                 )
-            ]
+            ],
+            inputs,
+            outputs,
+            diff_paths,
+            source_rev=source_rev,
+            input_hash=input_hash.input_hash,
+            summary=f"{TOOL_NAME}: invalid target",
         )
         return 2
     if _has_symlink_parent(target_path, project_root):
-        _print_diags(
+        _emit_result(
+            "fail",
             [
                 Diagnostic(
                     code="E_DECISIONS_FROM_INTENT_TARGET_SYMLINK_PARENT",
@@ -559,13 +704,40 @@ def main() -> int:
                     got=str(target_path),
                     path=json_pointer("target"),
                 )
-            ]
+            ],
+            inputs,
+            outputs,
+            diff_paths,
+            source_rev=source_rev,
+            input_hash=input_hash.input_hash,
+            summary=f"{TOOL_NAME}: invalid target",
         )
         return 2
 
     old_text = ""
     if target_path.exists():
-        old_text = target_path.read_text(encoding="utf-8")
+        try:
+            old_text = target_path.read_text(encoding="utf-8")
+        except (OSError, UnicodeDecodeError) as exc:
+            _emit_result(
+                "fail",
+                [
+                    Diagnostic(
+                        code="E_DECISIONS_FROM_INTENT_TARGET_READ_FAILED",
+                        message="target must be readable UTF-8",
+                        expected="readable UTF-8 file",
+                        got=str(exc),
+                        path=json_pointer("target"),
+                    )
+                ],
+                inputs,
+                outputs,
+                diff_paths,
+                source_rev=source_rev,
+                input_hash=input_hash.input_hash,
+                summary=f"{TOOL_NAME}: target read failed",
+            )
+            return 2
     new_text = dump_yaml(decisions)
     diff = difflib.unified_diff(
         old_text.splitlines(),
@@ -576,7 +748,8 @@ def main() -> int:
     )
     output = "\n".join(diff)
     if not output:
-        _print_diags(
+        _emit_result(
+            "diag",
             [
                 Diagnostic(
                     code="E_DECISIONS_FROM_INTENT_NO_CHANGE",
@@ -585,83 +758,132 @@ def main() -> int:
                     got="no change",
                     path=json_pointer("target"),
                 )
-            ]
+            ],
+            inputs,
+            outputs,
+            diff_paths,
+            source_rev=source_rev,
+            input_hash=input_hash.input_hash,
+            summary=f"{TOOL_NAME}: no changes required",
+        )
+        return 0
+
+    try:
+        out_path.resolve().relative_to(project_root.resolve())
+    except ValueError:
+        _emit_result(
+            "fail",
+            [
+                Diagnostic(
+                    code="E_DECISIONS_FROM_INTENT_OUTSIDE_PROJECT",
+                    message="out must be under project_root",
+                    expected="project_root/...",
+                    got=str(out_path),
+                    path=json_pointer("out"),
+                )
+            ],
+            inputs,
+            outputs,
+            diff_paths,
+            source_rev=source_rev,
+            input_hash=input_hash.input_hash,
+            summary=f"{TOOL_NAME}: invalid output path",
         )
         return 2
-    if args.out:
-        out_path = _resolve_path(project_root, args.out)
-        try:
-            out_path.resolve().relative_to(project_root.resolve())
-        except ValueError:
-            _print_diags(
-                [
-                    Diagnostic(
-                        code="E_DECISIONS_FROM_INTENT_OUTSIDE_PROJECT",
-                        message="out must be under project_root",
-                        expected="project_root/...",
-                        got=str(out_path),
-                        path=json_pointer("out"),
-                    )
-                ]
-            )
-            return 2
-        if out_path.exists() and out_path.is_dir():
-            _print_diags(
-                [
-                    Diagnostic(
-                        code="E_DECISIONS_FROM_INTENT_OUT_IS_DIR",
-                        message="out must be file",
-                        expected="file",
-                        got=str(out_path),
-                        path=json_pointer("out"),
-                    )
-                ]
-            )
-            return 2
-        if out_path.exists() and out_path.is_symlink():
-            _print_diags(
-                [
-                    Diagnostic(
-                        code="E_DECISIONS_FROM_INTENT_OUT_SYMLINK",
-                        message="out must not be symlink",
-                        expected="non-symlink",
-                        got=str(out_path),
-                        path=json_pointer("out"),
-                    )
-                ]
-            )
-            return 2
-        if _has_symlink_parent(out_path, project_root):
-            _print_diags(
-                [
-                    Diagnostic(
-                        code="E_DECISIONS_FROM_INTENT_OUT_SYMLINK_PARENT",
-                        message="out parent must not be symlink",
-                        expected="non-symlink",
-                        got=str(out_path),
-                        path=json_pointer("out"),
-                    )
-                ]
-            )
-            return 2
-        out_path.parent.mkdir(parents=True, exist_ok=True)
-        try:
-            atomic_write_text(out_path, output + "\n", symlink_code="E_DECISIONS_FROM_INTENT_OUT_SYMLINK")
-        except ValueError as exc:
-            _print_diags(
-                [
-                    Diagnostic(
-                        code=str(exc),
-                        message="out must not be symlink",
-                        expected="non-symlink",
-                        got=str(out_path),
-                        path=json_pointer("out"),
-                    )
-                ]
-            )
-            return 2
-    else:
-        print(output)
+    if out_path.exists() and out_path.is_dir():
+        _emit_result(
+            "fail",
+            [
+                Diagnostic(
+                    code="E_DECISIONS_FROM_INTENT_OUT_IS_DIR",
+                    message="out must be file",
+                    expected="file",
+                    got=str(out_path),
+                    path=json_pointer("out"),
+                )
+            ],
+            inputs,
+            outputs,
+            diff_paths,
+            source_rev=source_rev,
+            input_hash=input_hash.input_hash,
+            summary=f"{TOOL_NAME}: invalid output path",
+        )
+        return 2
+    if out_path.exists() and out_path.is_symlink():
+        _emit_result(
+            "fail",
+            [
+                Diagnostic(
+                    code="E_DECISIONS_FROM_INTENT_OUT_SYMLINK",
+                    message="out must not be symlink",
+                    expected="non-symlink",
+                    got=str(out_path),
+                    path=json_pointer("out"),
+                )
+            ],
+            inputs,
+            outputs,
+            diff_paths,
+            source_rev=source_rev,
+            input_hash=input_hash.input_hash,
+            summary=f"{TOOL_NAME}: invalid output path",
+        )
+        return 2
+    if _has_symlink_parent(out_path, project_root):
+        _emit_result(
+            "fail",
+            [
+                Diagnostic(
+                    code="E_DECISIONS_FROM_INTENT_OUT_SYMLINK_PARENT",
+                    message="out parent must not be symlink",
+                    expected="non-symlink",
+                    got=str(out_path),
+                    path=json_pointer("out"),
+                )
+            ],
+            inputs,
+            outputs,
+            diff_paths,
+            source_rev=source_rev,
+            input_hash=input_hash.input_hash,
+            summary=f"{TOOL_NAME}: invalid output path",
+        )
+        return 2
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        atomic_write_text(out_path, output + "\n", symlink_code="E_DECISIONS_FROM_INTENT_OUT_SYMLINK")
+    except ValueError as exc:
+        _emit_result(
+            "fail",
+            [
+                Diagnostic(
+                    code=str(exc),
+                    message="out must not be symlink",
+                    expected="non-symlink",
+                    got=str(out_path),
+                    path=json_pointer("out"),
+                )
+            ],
+            inputs,
+            outputs,
+            diff_paths,
+            source_rev=source_rev,
+            input_hash=input_hash.input_hash,
+            summary=f"{TOOL_NAME}: output write blocked",
+        )
+        return 2
+
+    _emit_result(
+        "ok",
+        [],
+        inputs,
+        outputs,
+        diff_paths,
+        source_rev=source_rev,
+        input_hash=input_hash.input_hash,
+        summary=f"{TOOL_NAME}: diff written",
+    )
     return 0
 
 

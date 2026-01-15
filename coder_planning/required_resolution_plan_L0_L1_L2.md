@@ -32,7 +32,7 @@ Rules
 - The loop ends only when all gates PASS (or DIAG where policy allows) and Required_Resolution fields are present.
 
 5) Tooling Requirements to Reach Required_Resolution
-- topology_channel_builder: Explicit Input -> Edge channel/category in decisions, then promote to topology.
+- topology_channel_builder: Explicit Input -> Edge channel/category in topology (diff-only; no decisions changes).
 - contract_api_builder: Explicit Input -> @Interface/@Function + request/response Type skeletons.
 - contract_error_model_builder: Explicit Input -> ERROR_CODE / RETRY_POLICY string unions.
 - contract_rule_builder: Explicit Input -> @Rule with bind and optional contract coverage.
@@ -59,6 +59,30 @@ Rules
 8) Determinism
 - All generators MUST compute input_hash from the same declared input set.
 - Outputs MUST be stable (sorting, LF, no time-dependent fields unless explicitly in provenance).
+
+9) Current Gaps to Close (Priority Order)
+- contract_error_model_builder MUST be implemented and wired into L1 gates.
+- Tool Result Envelope MUST be enforced across all L0/L1/L2 tools (stdout JSON-only).
+- L2 pre-publish steps (context_pack_gen, bundle_doc_gen, implementation_skeleton_gen) MUST be orchestrated, not manual.
+- topology @File.stage MUST match actual stage; L0 generation MUST emit stage:"L0".
+- required_artifacts MUST exist under project_root (e.g., decisions/contracts.yaml).
+
+10) Learnings Log (Date, Issue, Root Cause, Solution, Prevention)
+- 2025-01-15; Issue: L2 publish failed due to input_hash mismatch; Root Cause: context_pack/bundle_doc not regenerated after L1 changes; Solution: rerun context_pack_gen and bundle_doc_gen; Prevention: add L2 pre-publish orchestration to gate runner.
+- 2025-01-15; Issue: context_pack too thin (Node only, edges empty); Root Cause: target/hops not explicit; Solution: make target/hops explicit input; Prevention: require target/hops in tool input and gate.
+- 2025-01-15; Issue: required_artifacts missing decisions/contracts.yaml; Root Cause: artifact not generated; Solution: add explicit tool or manual input; Prevention: gate fail when missing.
+
+11) Execution Checklist (Track Progress)
+- [ ] L0: stage consistency enforced (topology @File.stage aligns with actual stage).
+- [x] L0: topology_channel_builder produces diff-only channel updates.
+- [x] L1: contract_api_builder implemented and usable for explicit API/type input.
+- [ ] L1: contract_error_model_builder implemented and wired to gate.
+- [x] L1: contract_rule_builder allowlist enforced via profile prefix_bindings.
+- [x] L1: contract_rules.yaml spec documented (SDSL2_Contract_Rule_Input_Spec.md).
+- [ ] L0/L1/L2: Tool Result Envelope enforced for all tools.
+- [ ] L2: pre-publish orchestration in gate runner (context_pack_gen -> bundle_doc_gen -> implementation_skeleton_gen).
+- [ ] L2: decisions/contracts.yaml exists and passes ssot_kernel_coverage_check.
+- [ ] L2: context_pack target/hops explicit input available for Test_idea.
 
 Non-normative Example
 Tool Result Envelope:

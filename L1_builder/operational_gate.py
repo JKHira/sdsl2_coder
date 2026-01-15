@@ -22,6 +22,7 @@ EXCEPTION_TARGET_TO_GATE = {
     "DRAFT-SCHEMA": "draft_schema",
     "EVIDENCE-COVERAGE": "evidence_coverage",
     "SCHEMA-MIGRATION": "schema_migration",
+    "TOPOLOGY-RESOLUTION": "topology_resolution",
 }
 
 
@@ -224,6 +225,18 @@ def main() -> int:
             print(f"E_L1_EXCEPTIONS_NOT_ACTIVE:{','.join(missing)}", file=sys.stderr)
             return 2
         exception_overrides = requested
+
+    topo_cmd = [
+        py,
+        str(ROOT / "L0_builder" / "topology_resolution_lint.py"),
+        "--input",
+        str(project_root / "sdsl2" / "topology"),
+        "--project-root",
+        str(project_root),
+        "--fail-on-missing",
+    ]
+    if _run_gate(topo_cmd, "topology_resolution", policy, args.verbose, exception_overrides) != 0:
+        return 2
 
     dup_cmd = [
         py,

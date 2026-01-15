@@ -190,6 +190,17 @@ Promote により、Topology SSOT は以下の変化をします。
 	•	もし @File.stage:"L0" だった場合、Edge 追加と同時に stage が “L1” に更新される
 	•	以後、L1 では @EdgeIntent は SSOT から排除され（Intent YAML に置く）、SSOT は Graph Facts のみを持つ形に整理されます
 
+Edge channel の確定（L1 後半、diff-only）
+	•	Edge の channel は Required_Resolution の必須項目です。
+	•	Promote の直後は channel が未設定のため、明示入力で補完します。
+	•	入力: drafts/ledger/edge_channels.yaml（explicit）
+	•	ツール: topology_channel_builder（diff-only）
+	•	手順:
+	  1) topology_channel_builder を実行（OUTPUT に patch を出す）
+	  2) git apply --check / git apply で適用
+	  3) topology_resolution_lint を再実行し、欠落が無いことを確認
+	•	注意: topology_channel_builder の stdout は JSON のみ（diff は OUTPUT 側）
+
 Diff の適用手順（共通）
 	•	diff-only ツールは unified diff を stdout または --out に出力するだけで、SSOT/decisions を直接書き換えません
 	•	適用前の確認: git apply --check <patch>

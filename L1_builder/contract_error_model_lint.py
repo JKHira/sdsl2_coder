@@ -431,8 +431,17 @@ def main() -> int:
         current_name: str | None = None
         expr_parts: list[str] = []
         awaiting_equals = False
+        in_meta = False
         for line in lines:
             stripped = line.strip()
+            if in_meta:
+                if "}" in line:
+                    in_meta = False
+                continue
+            if stripped.startswith("@"):
+                if "{" in line and "}" not in line:
+                    in_meta = True
+                continue
             match = TYPE_DECL_START_RE.match(line)
             if match:
                 if current_name is not None:

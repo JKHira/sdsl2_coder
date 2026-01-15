@@ -1,0 +1,17 @@
+--- /Volumes/SSD/Dev_Projects/SDSL2_Coder/project_testing/sdsl2/contract/P0_C_ORDER_FLOW.sdsl2
++++ /Volumes/SSD/Dev_Projects/SDSL2_Coder/project_testing/sdsl2/contract/P0_C_ORDER_FLOW.sdsl2
+@@ -32,3 +32,14 @@
+   bind:@Type.ORDER_SUBMIT,
+   contract:["CONTRACT.ORDER_SUBMIT"],
+ }
++
++@Rule {
++  id:"INVARIANT_INVENTORY_RESERVE",
++  bind:@Type.INVENTORY_RESERVE,
++  contract:["CONTRACT.INVENTORY_RESERVE"],
++}
++@Rule {
++  id:"INVARIANT_PAYMENT_RESULT",
++  bind:@Type.PAYMENT_RESULT,
++  contract:["CONTRACT.PAYMENT_RESULT"],
++}

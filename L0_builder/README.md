@@ -17,6 +17,7 @@ Ready
 - `resolution_gap_report.py` -> Emit resolution gaps to OUTPUT/resolution_gaps.yaml.
 - `edgeintent_diff.py` -> Intent preview diff generator (stdout unified diff against OUTPUT/intent_preview.sdsl2 only; no auto-apply).
 - `topology_enricher.py` -> Diff-only topology enrichment for @Node summary/io fields.
+- `topology_channel_builder.py` -> Diff-only topology enrichment for @Edge channel fields.
 - `intent_template_gen.py` -> Generate drafts/intent skeletons from topology.
 
 Planned (not implemented yet)
@@ -98,6 +99,17 @@ python L0_builder/topology_enricher.py \
   --map /repo/drafts/ledger/node_enrich.yaml \
   --project-root /repo
 ```
+
+Topology channel builder (diff-only):
+
+```bash
+python L0_builder/topology_channel_builder.py \
+  --input /repo/sdsl2/topology \
+  --map /repo/drafts/ledger/edge_channels.yaml \
+  --project-root /repo
+```
+Notes:
+- stdout is JSON-only (tool result envelope); diff is written to `OUTPUT/topology_channel.patch` by default.
 
 Intent template generator:
 

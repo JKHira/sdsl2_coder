@@ -2,14 +2,46 @@ Context Pack
 Header:
   target: @Node.ORDER_API
   profile: topology
-  stage: L0
+  stage: L1
 Nodes:
+  - rel_id: EXTERNAL_CLIENT
+    canon_id: P0_T_ORDER_FLOW_L0_EXTERNAL_CLIENT
+  - rel_id: INVENTORY_SERVICE
+    canon_id: P0_T_ORDER_FLOW_L0_INVENTORY_SERVICE
   - rel_id: ORDER_API
     canon_id: P0_T_ORDER_FLOW_L0_ORDER_API
+  - rel_id: PAYMENT_FULFILLMENT
+    canon_id: P0_T_ORDER_FLOW_L0_PAYMENT_FULFILLMENT
 Edges:
-  []
+  - from: @Node.EXTERNAL_CLIENT
+    to: @Node.ORDER_API
+    direction: "req"
+    channel: "sync_call"
+    contract_refs:
+      - "CONTRACT.ORDER_SUBMIT"
+  - from: @Node.ORDER_API
+    to: @Node.INVENTORY_SERVICE
+    direction: "req"
+    channel: "sync_call"
+    contract_refs:
+      - "CONTRACT.INVENTORY_RESERVE"
+  - from: @Node.ORDER_API
+    to: @Node.PAYMENT_FULFILLMENT
+    direction: "req"
+    channel: "sync_call"
+    contract_refs:
+      - "CONTRACT.PAYMENT_AND_FULFILL"
+  - from: @Node.PAYMENT_FULFILLMENT
+    to: @Node.ORDER_API
+    direction: "rep"
+    channel: "sync_call"
+    contract_refs:
+      - "CONTRACT.PAYMENT_RESULT"
 Contracts:
-  []
+  - "CONTRACT.INVENTORY_RESERVE"
+  - "CONTRACT.ORDER_SUBMIT"
+  - "CONTRACT.PAYMENT_AND_FULFILL"
+  - "CONTRACT.PAYMENT_RESULT"
 Authz:
   []
 Invariants:
@@ -18,8 +50,8 @@ Open TODO: {}
 ---
 Supplementary: provenance
 generator: "L2_builder.context_pack_gen"
-source_rev: "9310e4a1c7eecd55322fdf395e0643501388a6e1"
+source_rev: "72160814ad75b6b909a0ebeda133748c1d3a8311"
 inputs:
   - "sdsl2/contract/P0_C_ORDER_FLOW.sdsl2"
   - "sdsl2/topology/P0_T_ORDER_FLOW_L0.sdsl2"
-  - "input_hash:sha256:9b388bcf8c3692f818bd091d0b3aa649069065d5710441ca0dc61ad1afb59a7e"
+  - "input_hash:sha256:6da8b17fd913061c4e19a000b5c58f40c0f669da120cdbe97be6b698c909fb30"

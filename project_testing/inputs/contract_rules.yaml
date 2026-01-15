@@ -1,0 +1,23 @@
+schema_version: "1.0"
+target: "sdsl2/contract/P0_C_ORDER_FLOW.sdsl2"
+rules:
+  - id: "AUTHZ_API"
+    bind: "@Interface.API"
+    contract:
+      - "CONTRACT.ORDER_SUBMIT"
+  - id: "INVARIANT_ORDER_SUBMIT"
+    bind: "@Type.ORDER_SUBMIT"
+    contract:
+      - "CONTRACT.ORDER_SUBMIT"
+  - id: "COMPENSATION_PAYMENT"
+    bind: "@Interface.API"
+    contract:
+      - "CONTRACT.PAYMENT_AND_FULFILL"
+  - id: "INVARIANT_INVENTORY_RESERVE"
+    bind: "@Type.INVENTORY_RESERVE"
+    contract:
+      - "CONTRACT.INVENTORY_RESERVE"
+  - id: "INVARIANT_PAYMENT_RESULT"
+    bind: "@Type.PAYMENT_RESULT"
+    contract:
+      - "CONTRACT.PAYMENT_RESULT"

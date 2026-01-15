@@ -16,3 +16,30 @@ type PAYMENT_RESULT = "UNSPECIFIED"
 type ERROR_CODE = "UNSPECIFIED"
 @Type { id:"RETRY_POLICY" }
 type RETRY_POLICY = "UNSPECIFIED"
+
+@Rule {
+  id:"AUTHZ_API",
+  bind:@Interface.API,
+  contract:["CONTRACT.ORDER_SUBMIT"],
+}
+@Rule {
+  id:"COMPENSATION_PAYMENT",
+  bind:@Interface.API,
+  contract:["CONTRACT.PAYMENT_AND_FULFILL"],
+}
+@Rule {
+  id:"INVARIANT_ORDER_SUBMIT",
+  bind:@Type.ORDER_SUBMIT,
+  contract:["CONTRACT.ORDER_SUBMIT"],
+}
+
+@Rule {
+  id:"INVARIANT_INVENTORY_RESERVE",
+  bind:@Type.INVENTORY_RESERVE,
+  contract:["CONTRACT.INVENTORY_RESERVE"],
+}
+@Rule {
+  id:"INVARIANT_PAYMENT_RESULT",
+  bind:@Type.PAYMENT_RESULT,
+  contract:["CONTRACT.PAYMENT_RESULT"],
+}
