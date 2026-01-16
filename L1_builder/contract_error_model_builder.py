@@ -500,6 +500,14 @@ def _replace_type_decl(
     return True
 
 
+def _find_decl_insert_index(lines: list[str]) -> int:
+    for idx, line in enumerate(lines):
+        stripped = line.lstrip()
+        if stripped.startswith("@Dep") or stripped.startswith("@Rule"):
+            return idx
+    return len(lines)
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--input", required=True, help="Error model input YAML")
@@ -814,9 +822,9 @@ def main() -> int:
         return 2
 
     new_lines = lines[:]
+    insert_blocks: list[list[str]] = []
     if not error_replaced:
-        new_lines.append("")
-        new_lines.extend(
+        insert_blocks.append(
             _format_decl(
                 Decl(
                     kind="Type",
@@ -832,8 +840,7 @@ def main() -> int:
             )
         )
     if not retry_replaced:
-        new_lines.append("")
-        new_lines.extend(
+        insert_blocks.append(
             _format_decl(
                 Decl(
                     kind="Type",
@@ -848,6 +855,16 @@ def main() -> int:
                 )
             )
         )
+    if insert_blocks:
+        insert_at = _find_decl_insert_index(new_lines)
+        insert_lines: list[str] = []
+        for block in insert_blocks:
+            if insert_lines:
+                insert_lines.append("")
+            insert_lines.extend(block)
+        if insert_at > 0 and new_lines[insert_at - 1].strip():
+            insert_lines = [""] + insert_lines
+        new_lines[insert_at:insert_at] = insert_lines
 
     new_text = "\n".join(new_lines).rstrip() + "\n"
     diff = difflib.unified_diff(

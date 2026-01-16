@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+# ruff: noqa: E402
 
 from __future__ import annotations
 
 import argparse
 import difflib
 import json
+import subprocess
 import sys
 from pathlib import Path
 
@@ -13,9 +15,14 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from sdslv2_builder.errors import Diagnostic, json_pointer
+from sdslv2_builder.input_hash import compute_input_hash
 from sdslv2_builder.io_atomic import atomic_write_text
 from sdslv2_builder.op_yaml import DuplicateKey, dump_yaml, load_yaml_with_duplicates
 from sdslv2_builder.refs import RELID_RE, parse_contract_ref
+
+TOOL_NAME = "contract_map_builder"
+STAGE = "L1"
+DEFAULT_OUT_REL = Path("OUTPUT") / "contract_map.patch"
 
 
 def _diag(
@@ -29,9 +36,39 @@ def _diag(
     diags.append(Diagnostic(code=code, message=message, expected=expected, got=got, path=path))
 
 
-def _print_diags(diags: list[Diagnostic]) -> None:
-    payload = [d.to_dict() for d in diags]
-    print(json.dumps(payload, ensure_ascii=False, indent=2), file=sys.stderr)
+def _emit_result(
+    status: str,
+    diags: list[Diagnostic],
+    inputs: list[str],
+    outputs: list[str],
+    diff_paths: list[str],
+    source_rev: str | None = None,
+    input_hash: str | None = None,
+    summary: str | None = None,
+    next_actions: list[str] | None = None,
+    gaps_missing: list[str] | None = None,
+    gaps_invalid: list[str] | None = None,
+) -> None:
+    codes = sorted({diag.code for diag in diags})
+    payload = {
+        "status": status,
+        "tool": TOOL_NAME,
+        "stage": STAGE,
+        "source_rev": source_rev,
+        "input_hash": input_hash,
+        "inputs": inputs,
+        "outputs": outputs,
+        "diff_paths": diff_paths,
+        "diagnostics": {"count": len(diags), "codes": codes},
+        "gaps": {
+            "missing": gaps_missing or [],
+            "invalid": gaps_invalid or [],
+        },
+        "next_actions": next_actions or [],
+    }
+    print(json.dumps(payload, ensure_ascii=False))
+    if summary:
+        print(summary, file=sys.stderr)
 
 
 def _resolve_path(base: Path, raw: str) -> Path:
@@ -48,6 +85,32 @@ def _has_symlink_parent(path: Path, stop: Path) -> bool:
         if parent.is_symlink():
             return True
     return False
+
+
+def _rel_path(project_root: Path, path: Path) -> str:
+    try:
+        return path.resolve().relative_to(project_root.resolve()).as_posix()
+    except ValueError:
+        return str(path)
+
+
+def _git_rev(root: Path) -> str:
+    try:
+        proc = subprocess.run(
+            ["git", "-C", str(root), "rev-parse", "HEAD"],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+    except FileNotFoundError:
+        return "UNKNOWN"
+    if proc.returncode != 0:
+        return "UNKNOWN"
+    return proc.stdout.strip() or "UNKNOWN"
+
+
+def _build_source_rev(git_rev: str, generator_id: str) -> str:
+    return f"{git_rev}|gen:{generator_id}"
 
 
 def _dup_path(prefix: str, dup: DuplicateKey) -> str:
@@ -159,14 +222,26 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--input", required=True, help="Explicit contract_map YAML")
     ap.add_argument("--target", default="drafts/contract_map.yaml", help="Target map path under drafts/")
-    ap.add_argument("--out", default=None, help="Unified diff output path (default: stdout)")
+    ap.add_argument(
+        "--out",
+        default=None,
+        help="Unified diff output path (default: OUTPUT/contract_map.patch)",
+    )
+    ap.add_argument("--generator-id", default="contract_map_builder_v0_1", help="generator id")
     ap.add_argument("--project-root", default=None, help="Project root (defaults to repo root)")
     args = ap.parse_args()
 
     project_root = Path(args.project_root).resolve() if args.project_root else ROOT
     drafts_root = project_root / "drafts"
+    input_path = _resolve_path(project_root, args.input)
+    out_path = _resolve_path(project_root, args.out) if args.out else project_root / DEFAULT_OUT_REL
+    inputs = [_rel_path(project_root, input_path)]
+    outputs = [_rel_path(project_root, out_path)]
+    diff_paths = [_rel_path(project_root, out_path)]
+
     if drafts_root.is_symlink() or _has_symlink_parent(drafts_root, project_root):
-        _print_diags(
+        _emit_result(
+            "fail",
             [
                 Diagnostic(
                     code="E_CONTRACT_MAP_DRAFTS_ROOT_SYMLINK",
@@ -175,15 +250,19 @@ def main() -> int:
                     got=str(drafts_root),
                     path=json_pointer("target"),
                 )
-            ]
+            ],
+            inputs,
+            outputs,
+            diff_paths,
+            summary=f"{TOOL_NAME}: drafts root invalid",
         )
         return 2
 
-    input_path = _resolve_path(project_root, args.input)
     try:
         input_path.resolve().relative_to(project_root.resolve())
     except ValueError:
-        _print_diags(
+        _emit_result(
+            "fail",
             [
                 Diagnostic(
                     code="E_CONTRACT_MAP_INPUT_OUTSIDE_PROJECT",
@@ -192,11 +271,16 @@ def main() -> int:
                     got=str(input_path),
                     path=json_pointer("input"),
                 )
-            ]
+            ],
+            inputs,
+            outputs,
+            diff_paths,
+            summary=f"{TOOL_NAME}: input out of scope",
         )
         return 2
     if not input_path.exists():
-        _print_diags(
+        _emit_result(
+            "fail",
             [
                 Diagnostic(
                     code="E_CONTRACT_MAP_INPUT_NOT_FOUND",
@@ -205,11 +289,16 @@ def main() -> int:
                     got=str(input_path),
                     path=json_pointer("input"),
                 )
-            ]
+            ],
+            inputs,
+            outputs,
+            diff_paths,
+            summary=f"{TOOL_NAME}: input not found",
         )
         return 2
     if input_path.is_dir():
-        _print_diags(
+        _emit_result(
+            "fail",
             [
                 Diagnostic(
                     code="E_CONTRACT_MAP_INPUT_IS_DIR",
@@ -218,11 +307,16 @@ def main() -> int:
                     got=str(input_path),
                     path=json_pointer("input"),
                 )
-            ]
+            ],
+            inputs,
+            outputs,
+            diff_paths,
+            summary=f"{TOOL_NAME}: input is dir",
         )
         return 2
     if input_path.is_symlink() or _has_symlink_parent(input_path, project_root):
-        _print_diags(
+        _emit_result(
+            "fail",
             [
                 Diagnostic(
                     code="E_CONTRACT_MAP_INPUT_SYMLINK",
@@ -231,7 +325,11 @@ def main() -> int:
                     got=str(input_path),
                     path=json_pointer("input"),
                 )
-            ]
+            ],
+            inputs,
+            outputs,
+            diff_paths,
+            summary=f"{TOOL_NAME}: input symlink blocked",
         )
         return 2
 
@@ -239,7 +337,8 @@ def main() -> int:
     try:
         target_path.resolve().relative_to(drafts_root.resolve())
     except ValueError:
-        _print_diags(
+        _emit_result(
+            "fail",
             [
                 Diagnostic(
                     code="E_CONTRACT_MAP_TARGET_NOT_DRAFTS",
@@ -248,11 +347,16 @@ def main() -> int:
                     got=str(target_path),
                     path=json_pointer("target"),
                 )
-            ]
+            ],
+            inputs,
+            outputs,
+            diff_paths,
+            summary=f"{TOOL_NAME}: target out of scope",
         )
         return 2
     if target_path.exists() and target_path.is_dir():
-        _print_diags(
+        _emit_result(
+            "fail",
             [
                 Diagnostic(
                     code="E_CONTRACT_MAP_TARGET_IS_DIR",
@@ -261,11 +365,16 @@ def main() -> int:
                     got=str(target_path),
                     path=json_pointer("target"),
                 )
-            ]
+            ],
+            inputs,
+            outputs,
+            diff_paths,
+            summary=f"{TOOL_NAME}: target invalid",
         )
         return 2
     if target_path.exists() and target_path.is_symlink():
-        _print_diags(
+        _emit_result(
+            "fail",
             [
                 Diagnostic(
                     code="E_CONTRACT_MAP_TARGET_SYMLINK",
@@ -274,11 +383,16 @@ def main() -> int:
                     got=str(target_path),
                     path=json_pointer("target"),
                 )
-            ]
+            ],
+            inputs,
+            outputs,
+            diff_paths,
+            summary=f"{TOOL_NAME}: target invalid",
         )
         return 2
     if _has_symlink_parent(target_path, project_root):
-        _print_diags(
+        _emit_result(
+            "fail",
             [
                 Diagnostic(
                     code="E_CONTRACT_MAP_TARGET_SYMLINK_PARENT",
@@ -287,17 +401,58 @@ def main() -> int:
                     got=str(target_path),
                     path=json_pointer("target"),
                 )
-            ]
+            ],
+            inputs,
+            outputs,
+            diff_paths,
+            summary=f"{TOOL_NAME}: target invalid",
+        )
+        return 2
+
+    source_rev = _build_source_rev(_git_rev(project_root), args.generator_id)
+    try:
+        input_hash = compute_input_hash(
+            project_root,
+            include_decisions=False,
+            extra_inputs=[input_path],
+        )
+    except (FileNotFoundError, ValueError, OSError, UnicodeDecodeError) as exc:
+        _emit_result(
+            "fail",
+            [
+                Diagnostic(
+                    code="E_CONTRACT_MAP_INPUT_HASH_FAILED",
+                    message="input_hash calculation failed",
+                    expected="valid inputs",
+                    got=str(exc),
+                    path=json_pointer("input_hash"),
+                )
+            ],
+            inputs,
+            outputs,
+            diff_paths,
+            source_rev=source_rev,
+            summary=f"{TOOL_NAME}: input_hash failed",
         )
         return 2
 
     diags: list[Diagnostic] = []
     edges = _load_contract_map_input(input_path, diags)
     if diags:
-        _print_diags(diags)
+        _emit_result(
+            "fail",
+            diags,
+            inputs,
+            outputs,
+            diff_paths,
+            source_rev=source_rev,
+            input_hash=input_hash.input_hash,
+            summary=f"{TOOL_NAME}: input validation failed",
+        )
         return 2
     if not edges:
-        _print_diags(
+        _emit_result(
+            "fail",
             [
                 Diagnostic(
                     code="E_CONTRACT_MAP_INPUT_EMPTY",
@@ -306,7 +461,13 @@ def main() -> int:
                     got="empty",
                     path=json_pointer("input"),
                 )
-            ]
+            ],
+            inputs,
+            outputs,
+            diff_paths,
+            source_rev=source_rev,
+            input_hash=input_hash.input_hash,
+            summary=f"{TOOL_NAME}: empty input",
         )
         return 2
 
@@ -319,7 +480,8 @@ def main() -> int:
         try:
             old_text = target_path.read_text(encoding="utf-8")
         except (OSError, UnicodeDecodeError) as exc:
-            _print_diags(
+            _emit_result(
+                "fail",
                 [
                     Diagnostic(
                         code="E_CONTRACT_MAP_TARGET_READ_FAILED",
@@ -328,7 +490,13 @@ def main() -> int:
                         got=str(exc),
                         path=json_pointer("target"),
                     )
-                ]
+                ],
+                inputs,
+                outputs,
+                diff_paths,
+                source_rev=source_rev,
+                input_hash=input_hash.input_hash,
+                summary=f"{TOOL_NAME}: target read failed",
             )
             return 2
     diff = difflib.unified_diff(
@@ -340,7 +508,8 @@ def main() -> int:
     )
     output = "\n".join(diff)
     if not output:
-        _print_diags(
+        _emit_result(
+            "diag",
             [
                 Diagnostic(
                     code="E_CONTRACT_MAP_NO_CHANGE",
@@ -349,84 +518,132 @@ def main() -> int:
                     got="no change",
                     path=json_pointer("target"),
                 )
-            ]
+            ],
+            inputs,
+            outputs,
+            diff_paths,
+            source_rev=source_rev,
+            input_hash=input_hash.input_hash,
+            summary=f"{TOOL_NAME}: no changes required",
+        )
+        return 0
+
+    try:
+        out_path.resolve().relative_to(project_root.resolve())
+    except ValueError:
+        _emit_result(
+            "fail",
+            [
+                Diagnostic(
+                    code="E_CONTRACT_MAP_OUTSIDE_PROJECT",
+                    message="out must be under project_root",
+                    expected="project_root/...",
+                    got=str(out_path),
+                    path=json_pointer("out"),
+                )
+            ],
+            inputs,
+            outputs,
+            diff_paths,
+            source_rev=source_rev,
+            input_hash=input_hash.input_hash,
+            summary=f"{TOOL_NAME}: invalid output path",
+        )
+        return 2
+    if out_path.exists() and out_path.is_dir():
+        _emit_result(
+            "fail",
+            [
+                Diagnostic(
+                    code="E_CONTRACT_MAP_OUT_IS_DIR",
+                    message="out must be file",
+                    expected="file",
+                    got=str(out_path),
+                    path=json_pointer("out"),
+                )
+            ],
+            inputs,
+            outputs,
+            diff_paths,
+            source_rev=source_rev,
+            input_hash=input_hash.input_hash,
+            summary=f"{TOOL_NAME}: invalid output path",
+        )
+        return 2
+    if out_path.exists() and out_path.is_symlink():
+        _emit_result(
+            "fail",
+            [
+                Diagnostic(
+                    code="E_CONTRACT_MAP_OUT_SYMLINK",
+                    message="out must not be symlink",
+                    expected="non-symlink",
+                    got=str(out_path),
+                    path=json_pointer("out"),
+                )
+            ],
+            inputs,
+            outputs,
+            diff_paths,
+            source_rev=source_rev,
+            input_hash=input_hash.input_hash,
+            summary=f"{TOOL_NAME}: invalid output path",
+        )
+        return 2
+    if _has_symlink_parent(out_path, project_root):
+        _emit_result(
+            "fail",
+            [
+                Diagnostic(
+                    code="E_CONTRACT_MAP_OUT_SYMLINK_PARENT",
+                    message="out parent must not be symlink",
+                    expected="non-symlink",
+                    got=str(out_path),
+                    path=json_pointer("out"),
+                )
+            ],
+            inputs,
+            outputs,
+            diff_paths,
+            source_rev=source_rev,
+            input_hash=input_hash.input_hash,
+            summary=f"{TOOL_NAME}: invalid output path",
+        )
+        return 2
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        atomic_write_text(out_path, output + "\n", symlink_code="E_CONTRACT_MAP_OUT_SYMLINK")
+    except ValueError as exc:
+        _emit_result(
+            "fail",
+            [
+                Diagnostic(
+                    code=str(exc),
+                    message="out must not be symlink",
+                    expected="non-symlink",
+                    got=str(out_path),
+                    path=json_pointer("out"),
+                )
+            ],
+            inputs,
+            outputs,
+            diff_paths,
+            source_rev=source_rev,
+            input_hash=input_hash.input_hash,
+            summary=f"{TOOL_NAME}: output write blocked",
         )
         return 2
 
-    if args.out:
-        out_path = _resolve_path(project_root, args.out)
-        try:
-            out_path.resolve().relative_to(project_root.resolve())
-        except ValueError:
-            _print_diags(
-                [
-                    Diagnostic(
-                        code="E_CONTRACT_MAP_OUTSIDE_PROJECT",
-                        message="out must be under project_root",
-                        expected="project_root/...",
-                        got=str(out_path),
-                        path=json_pointer("out"),
-                    )
-                ]
-            )
-            return 2
-        if out_path.exists() and out_path.is_dir():
-            _print_diags(
-                [
-                    Diagnostic(
-                        code="E_CONTRACT_MAP_OUT_IS_DIR",
-                        message="out must be file",
-                        expected="file",
-                        got=str(out_path),
-                        path=json_pointer("out"),
-                    )
-                ]
-            )
-            return 2
-        if out_path.exists() and out_path.is_symlink():
-            _print_diags(
-                [
-                    Diagnostic(
-                        code="E_CONTRACT_MAP_OUT_SYMLINK",
-                        message="out must not be symlink",
-                        expected="non-symlink",
-                        got=str(out_path),
-                        path=json_pointer("out"),
-                    )
-                ]
-            )
-            return 2
-        if _has_symlink_parent(out_path, project_root):
-            _print_diags(
-                [
-                    Diagnostic(
-                        code="E_CONTRACT_MAP_OUT_SYMLINK_PARENT",
-                        message="out parent must not be symlink",
-                        expected="non-symlink",
-                        got=str(out_path),
-                        path=json_pointer("out"),
-                    )
-                ]
-            )
-            return 2
-        out_path.parent.mkdir(parents=True, exist_ok=True)
-        try:
-            atomic_write_text(out_path, output + "\n", symlink_code="E_CONTRACT_MAP_OUT_SYMLINK")
-        except ValueError as exc:
-            _print_diags(
-                [
-                    Diagnostic(
-                        code=str(exc),
-                        message="out must not be symlink",
-                        expected="non-symlink",
-                        got=str(out_path),
-                        path=json_pointer("out"),
-                    )
-                ]
-            )
-            return 2
-    else:
-        print(output)
+    _emit_result(
+        "ok",
+        [],
+        inputs,
+        outputs,
+        diff_paths,
+        source_rev=source_rev,
+        input_hash=input_hash.input_hash,
+        summary=f"{TOOL_NAME}: diff written",
+    )
     return 0
 
 

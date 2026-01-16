@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+# ruff: noqa: E402
 
 from __future__ import annotations
 
@@ -19,6 +20,7 @@ from sdslv2_builder.contract import ContractModel, Decl, DocMeta
 from sdslv2_builder.contract_writer import write_contract
 from sdslv2_builder.errors import Diagnostic, json_pointer
 from sdslv2_builder.input_hash import compute_input_hash
+from sdslv2_builder.io_atomic import atomic_write_text
 from sdslv2_builder.lint import _capture_metadata, _parse_metadata_pairs
 from sdslv2_builder.op_yaml import load_yaml
 from sdslv2_builder.refs import RELID_RE, parse_contract_ref
@@ -26,6 +28,9 @@ from sdslv2_builder.refs import RELID_RE, parse_contract_ref
 PROFILE_REL_PATH = Path("policy") / "contract_resolution_profile.yaml"
 DECL_KINDS = {"Structure", "Interface", "Function", "Const", "Type"}
 FILE_HEADER_RE = re.compile(r'@File\s*\{\s*profile\s*:\s*"contract"\s*,\s*id_prefix\s*:\s*"(?P<prefix>[^"]+)"')
+TOOL_NAME = "contract_scaffold_gen"
+STAGE = "L1"
+DEFAULT_DIFF_REL = Path("OUTPUT") / "contract_scaffold.patch"
 
 
 def _diag(
@@ -39,9 +44,39 @@ def _diag(
     diags.append(Diagnostic(code=code, message=message, expected=expected, got=got, path=path))
 
 
-def _print_diags(diags: list[Diagnostic]) -> None:
-    payload = [d.to_dict() for d in diags]
-    print(json.dumps(payload, ensure_ascii=False, indent=2), file=sys.stderr)
+def _emit_result(
+    status: str,
+    diags: list[Diagnostic],
+    inputs: list[str],
+    outputs: list[str],
+    diff_paths: list[str],
+    source_rev: str | None = None,
+    input_hash: str | None = None,
+    summary: str | None = None,
+    next_actions: list[str] | None = None,
+    gaps_missing: list[str] | None = None,
+    gaps_invalid: list[str] | None = None,
+) -> None:
+    codes = sorted({diag.code for diag in diags})
+    payload = {
+        "status": status,
+        "tool": TOOL_NAME,
+        "stage": STAGE,
+        "source_rev": source_rev,
+        "input_hash": input_hash,
+        "inputs": inputs,
+        "outputs": outputs,
+        "diff_paths": diff_paths,
+        "diagnostics": {"count": len(diags), "codes": codes},
+        "gaps": {
+            "missing": gaps_missing or [],
+            "invalid": gaps_invalid or [],
+        },
+        "next_actions": next_actions or [],
+    }
+    print(json.dumps(payload, ensure_ascii=False))
+    if summary:
+        print(summary, file=sys.stderr)
 
 
 def _resolve_path(base: Path, raw: str) -> Path:
@@ -60,6 +95,13 @@ def _has_symlink_parent(path: Path, stop: Path) -> bool:
     return False
 
 
+def _rel_path(project_root: Path, path: Path) -> str:
+    try:
+        return path.resolve().relative_to(project_root.resolve()).as_posix()
+    except ValueError:
+        return str(path)
+
+
 def _git_rev(root: Path) -> str:
     try:
         proc = subprocess.run(
@@ -73,6 +115,10 @@ def _git_rev(root: Path) -> str:
     if proc.returncode != 0:
         return "UNKNOWN"
     return proc.stdout.strip() or "UNKNOWN"
+
+
+def _build_source_rev(git_rev: str, generator_id: str) -> str:
+    return f"{git_rev}|gen:{generator_id}"
 
 
 def _strip_quotes(value: str | None) -> str | None:
@@ -406,6 +452,11 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--decisions-path", default="decisions/edges.yaml", help="decisions/edges.yaml path")
     ap.add_argument("--out", required=True, help="Target contract .sdsl2 file")
+    ap.add_argument(
+        "--diff-out",
+        default=None,
+        help="Unified diff output path (default: OUTPUT/contract_scaffold.patch)",
+    )
     ap.add_argument("--id-prefix", required=True, help="@File id_prefix for new contract file")
     ap.add_argument("--generator-id", default="contract_scaffold_gen_v0_1", help="generator id")
     ap.add_argument("--project-root", default=None, help="Project root (defaults to repo root)")
@@ -413,8 +464,15 @@ def main() -> int:
 
     project_root = Path(args.project_root).resolve() if args.project_root else ROOT
     decisions_path = _resolve_path(project_root, args.decisions_path)
+    out_path = _resolve_path(project_root, args.out)
+    diff_out = _resolve_path(project_root, args.diff_out) if args.diff_out else project_root / DEFAULT_DIFF_REL
+    inputs = [_rel_path(project_root, decisions_path)]
+    outputs = [_rel_path(project_root, out_path), _rel_path(project_root, diff_out)]
+    diff_paths = [_rel_path(project_root, diff_out)]
+    source_rev = _build_source_rev(_git_rev(project_root), args.generator_id)
     if not decisions_path.exists():
-        _print_diags(
+        _emit_result(
+            "fail",
             [
                 Diagnostic(
                     code="E_CONTRACT_SCAFFOLD_DECISIONS_NOT_FOUND",
@@ -423,11 +481,17 @@ def main() -> int:
                     got=str(decisions_path),
                     path=json_pointer("decisions"),
                 )
-            ]
+            ],
+            inputs,
+            outputs,
+            diff_paths,
+            source_rev=source_rev,
+            summary=f"{TOOL_NAME}: decisions not found",
         )
         return 2
     if decisions_path.is_dir():
-        _print_diags(
+        _emit_result(
+            "fail",
             [
                 Diagnostic(
                     code="E_CONTRACT_SCAFFOLD_DECISIONS_IS_DIR",
@@ -436,11 +500,17 @@ def main() -> int:
                     got=str(decisions_path),
                     path=json_pointer("decisions"),
                 )
-            ]
+            ],
+            inputs,
+            outputs,
+            diff_paths,
+            source_rev=source_rev,
+            summary=f"{TOOL_NAME}: decisions invalid",
         )
         return 2
     if decisions_path.is_symlink() or _has_symlink_parent(decisions_path, project_root):
-        _print_diags(
+        _emit_result(
+            "fail",
             [
                 Diagnostic(
                     code="E_CONTRACT_SCAFFOLD_DECISIONS_SYMLINK",
@@ -449,16 +519,21 @@ def main() -> int:
                     got=str(decisions_path),
                     path=json_pointer("decisions"),
                 )
-            ]
+            ],
+            inputs,
+            outputs,
+            diff_paths,
+            source_rev=source_rev,
+            summary=f"{TOOL_NAME}: decisions symlink blocked",
         )
         return 2
 
-    out_path = _resolve_path(project_root, args.out)
     contract_root = project_root / "sdsl2" / "contract"
     try:
         out_path.resolve().relative_to(contract_root.resolve())
     except ValueError:
-        _print_diags(
+        _emit_result(
+            "fail",
             [
                 Diagnostic(
                     code="E_CONTRACT_SCAFFOLD_OUT_NOT_CONTRACT",
@@ -467,11 +542,17 @@ def main() -> int:
                     got=str(out_path),
                     path=json_pointer("out"),
                 )
-            ]
+            ],
+            inputs,
+            outputs,
+            diff_paths,
+            source_rev=source_rev,
+            summary=f"{TOOL_NAME}: target out of scope",
         )
         return 2
     if out_path.exists() and out_path.is_dir():
-        _print_diags(
+        _emit_result(
+            "fail",
             [
                 Diagnostic(
                     code="E_CONTRACT_SCAFFOLD_OUT_IS_DIR",
@@ -480,11 +561,17 @@ def main() -> int:
                     got=str(out_path),
                     path=json_pointer("out"),
                 )
-            ]
+            ],
+            inputs,
+            outputs,
+            diff_paths,
+            source_rev=source_rev,
+            summary=f"{TOOL_NAME}: target invalid",
         )
         return 2
     if out_path.exists() and out_path.is_symlink():
-        _print_diags(
+        _emit_result(
+            "fail",
             [
                 Diagnostic(
                     code="E_CONTRACT_SCAFFOLD_OUT_SYMLINK",
@@ -493,11 +580,17 @@ def main() -> int:
                     got=str(out_path),
                     path=json_pointer("out"),
                 )
-            ]
+            ],
+            inputs,
+            outputs,
+            diff_paths,
+            source_rev=source_rev,
+            summary=f"{TOOL_NAME}: target invalid",
         )
         return 2
     if _has_symlink_parent(out_path, project_root):
-        _print_diags(
+        _emit_result(
+            "fail",
             [
                 Diagnostic(
                     code="E_CONTRACT_SCAFFOLD_OUT_SYMLINK_PARENT",
@@ -506,20 +599,41 @@ def main() -> int:
                     got=str(out_path),
                     path=json_pointer("out"),
                 )
-            ]
+            ],
+            inputs,
+            outputs,
+            diff_paths,
+            source_rev=source_rev,
+            summary=f"{TOOL_NAME}: target invalid",
         )
         return 2
 
     diags: list[Diagnostic] = []
     decisions, decision_diags = parse_decisions_file(decisions_path, project_root)
     if decision_diags:
-        _print_diags(decision_diags)
+        _emit_result(
+            "fail",
+            decision_diags,
+            inputs,
+            outputs,
+            diff_paths,
+            source_rev=source_rev,
+            summary=f"{TOOL_NAME}: decisions invalid",
+        )
         return 2
     profile = _load_profile(project_root, diags)
     profile_path = (project_root / PROFILE_REL_PATH).resolve()
 
     if diags:
-        _print_diags(diags)
+        _emit_result(
+            "fail",
+            diags,
+            inputs,
+            outputs,
+            diff_paths,
+            source_rev=source_rev,
+            summary=f"{TOOL_NAME}: profile invalid",
+        )
         return 2
 
     contract_refs: set[str] = set()
@@ -534,7 +648,8 @@ def main() -> int:
                 contract_refs.add(ref)
 
     if contract_root.is_symlink() or _has_symlink_parent(contract_root, project_root):
-        _print_diags(
+        _emit_result(
+            "fail",
             [
                 Diagnostic(
                     code="E_CONTRACT_SCAFFOLD_CONTRACT_ROOT_SYMLINK",
@@ -543,7 +658,12 @@ def main() -> int:
                     got=str(contract_root),
                     path=json_pointer("contract"),
                 )
-            ]
+            ],
+            inputs,
+            outputs,
+            diff_paths,
+            source_rev=source_rev,
+            summary=f"{TOOL_NAME}: contract root invalid",
         )
         return 2
 
@@ -551,13 +671,15 @@ def main() -> int:
         extra_inputs = [decisions_path]
         if profile_path.exists():
             extra_inputs.append(profile_path)
+            inputs.append(_rel_path(project_root, profile_path))
         input_hash = compute_input_hash(
             project_root,
             include_decisions=False,
             extra_inputs=extra_inputs,
         )
     except (FileNotFoundError, ValueError, OSError, UnicodeDecodeError) as exc:
-        _print_diags(
+        _emit_result(
+            "fail",
             [
                 Diagnostic(
                     code="E_CONTRACT_SCAFFOLD_INPUT_HASH_FAILED",
@@ -566,7 +688,12 @@ def main() -> int:
                     got=str(exc),
                     path=json_pointer("input_hash"),
                 )
-            ]
+            ],
+            inputs,
+            outputs,
+            diff_paths,
+            source_rev=source_rev,
+            summary=f"{TOOL_NAME}: input_hash failed",
         )
         return 2
 
@@ -574,7 +701,16 @@ def main() -> int:
 
     existing = _collect_contract_decls(contract_root, diags)
     if diags:
-        _print_diags(diags)
+        _emit_result(
+            "fail",
+            diags,
+            inputs,
+            outputs,
+            diff_paths,
+            source_rev=source_rev,
+            input_hash=input_hash.input_hash,
+            summary=f"{TOOL_NAME}: contract scan failed",
+        )
         return 2
 
     stubs: list[Decl] = []
@@ -628,10 +764,20 @@ def main() -> int:
         stubs.append(_decl_stub("Type", token, ref))
 
     if diags:
-        _print_diags(diags)
+        _emit_result(
+            "fail",
+            diags,
+            inputs,
+            outputs,
+            diff_paths,
+            source_rev=source_rev,
+            input_hash=input_hash.input_hash,
+            summary=f"{TOOL_NAME}: scaffold invalid",
+        )
         return 2
     if not stubs:
-        _print_diags(
+        _emit_result(
+            "diag",
             [
                 Diagnostic(
                     code="E_CONTRACT_SCAFFOLD_NO_CHANGE",
@@ -640,9 +786,15 @@ def main() -> int:
                     got="none",
                     path=json_pointer("contract"),
                 )
-            ]
+            ],
+            inputs,
+            outputs,
+            diff_paths,
+            source_rev=source_rev,
+            input_hash=input_hash.input_hash,
+            summary=f"{TOOL_NAME}: no changes required",
         )
-        return 2
+        return 0
 
     model = ContractModel(
         id_prefix=args.id_prefix,
@@ -665,10 +817,20 @@ def main() -> int:
         header_diags: list[Diagnostic] = []
         existing_prefix = _extract_existing_prefix(old_text, header_diags)
         if header_diags:
-            _print_diags(header_diags)
+            _emit_result(
+                "fail",
+                header_diags,
+                inputs,
+                outputs,
+                diff_paths,
+                source_rev=source_rev,
+                input_hash=input_hash.input_hash,
+                summary=f"{TOOL_NAME}: header parse failed",
+            )
             return 2
         if existing_prefix and existing_prefix != args.id_prefix:
-            _print_diags(
+            _emit_result(
+                "fail",
                 [
                     Diagnostic(
                         code="E_CONTRACT_SCAFFOLD_PREFIX_MISMATCH",
@@ -677,12 +839,27 @@ def main() -> int:
                         got=existing_prefix,
                         path=json_pointer("out"),
                     )
-                ]
+                ],
+                inputs,
+                outputs,
+                diff_paths,
+                source_rev=source_rev,
+                input_hash=input_hash.input_hash,
+                summary=f"{TOOL_NAME}: id_prefix mismatch",
             )
             return 2
         updated_text, changed = _upsert_doc_meta(old_text, generator_desc, diags)
         if diags:
-            _print_diags(diags)
+            _emit_result(
+                "fail",
+                diags,
+                inputs,
+                outputs,
+                diff_paths,
+                source_rev=source_rev,
+                input_hash=input_hash.input_hash,
+                summary=f"{TOOL_NAME}: docmeta update failed",
+            )
             return 2
         old_text = updated_text
         stub_lines = stub_text.splitlines()[1:]
@@ -702,7 +879,8 @@ def main() -> int:
     )
     output = "\n".join(diff)
     if not output:
-        _print_diags(
+        _emit_result(
+            "diag",
             [
                 Diagnostic(
                     code="E_CONTRACT_SCAFFOLD_NO_CHANGE",
@@ -711,10 +889,155 @@ def main() -> int:
                     got="none",
                     path=json_pointer("contract"),
                 )
-            ]
+            ],
+            inputs,
+            outputs,
+            diff_paths,
+            source_rev=source_rev,
+            input_hash=input_hash.input_hash,
+            summary=f"{TOOL_NAME}: no changes required",
+        )
+        return 0
+
+    output_root = project_root / "OUTPUT"
+    try:
+        diff_out.resolve().relative_to(project_root.resolve())
+    except ValueError:
+        _emit_result(
+            "fail",
+            [
+                Diagnostic(
+                    code="E_CONTRACT_SCAFFOLD_DIFF_OUTSIDE_PROJECT",
+                    message="diff output must be under project_root",
+                    expected="project_root/...",
+                    got=str(diff_out),
+                    path=json_pointer("diff_out"),
+                )
+            ],
+            inputs,
+            outputs,
+            diff_paths,
+            source_rev=source_rev,
+            input_hash=input_hash.input_hash,
+            summary=f"{TOOL_NAME}: invalid diff output",
         )
         return 2
-    print(output)
+    try:
+        diff_out.resolve().relative_to(output_root.resolve())
+    except ValueError:
+        _emit_result(
+            "fail",
+            [
+                Diagnostic(
+                    code="E_CONTRACT_SCAFFOLD_DIFF_NOT_OUTPUT",
+                    message="diff output must be under OUTPUT/",
+                    expected="OUTPUT/...",
+                    got=str(diff_out),
+                    path=json_pointer("diff_out"),
+                )
+            ],
+            inputs,
+            outputs,
+            diff_paths,
+            source_rev=source_rev,
+            input_hash=input_hash.input_hash,
+            summary=f"{TOOL_NAME}: invalid diff output",
+        )
+        return 2
+    if diff_out.exists() and diff_out.is_dir():
+        _emit_result(
+            "fail",
+            [
+                Diagnostic(
+                    code="E_CONTRACT_SCAFFOLD_DIFF_IS_DIR",
+                    message="diff output must be file",
+                    expected="file",
+                    got=str(diff_out),
+                    path=json_pointer("diff_out"),
+                )
+            ],
+            inputs,
+            outputs,
+            diff_paths,
+            source_rev=source_rev,
+            input_hash=input_hash.input_hash,
+            summary=f"{TOOL_NAME}: invalid diff output",
+        )
+        return 2
+    if diff_out.exists() and diff_out.is_symlink():
+        _emit_result(
+            "fail",
+            [
+                Diagnostic(
+                    code="E_CONTRACT_SCAFFOLD_DIFF_SYMLINK",
+                    message="diff output must not be symlink",
+                    expected="non-symlink",
+                    got=str(diff_out),
+                    path=json_pointer("diff_out"),
+                )
+            ],
+            inputs,
+            outputs,
+            diff_paths,
+            source_rev=source_rev,
+            input_hash=input_hash.input_hash,
+            summary=f"{TOOL_NAME}: invalid diff output",
+        )
+        return 2
+    if _has_symlink_parent(diff_out, project_root):
+        _emit_result(
+            "fail",
+            [
+                Diagnostic(
+                    code="E_CONTRACT_SCAFFOLD_DIFF_SYMLINK_PARENT",
+                    message="diff output parent must not be symlink",
+                    expected="non-symlink",
+                    got=str(diff_out),
+                    path=json_pointer("diff_out"),
+                )
+            ],
+            inputs,
+            outputs,
+            diff_paths,
+            source_rev=source_rev,
+            input_hash=input_hash.input_hash,
+            summary=f"{TOOL_NAME}: invalid diff output",
+        )
+        return 2
+    diff_out.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        atomic_write_text(diff_out, output + "\n", symlink_code="E_CONTRACT_SCAFFOLD_DIFF_SYMLINK")
+    except ValueError as exc:
+        _emit_result(
+            "fail",
+            [
+                Diagnostic(
+                    code=str(exc),
+                    message="diff output must not be symlink",
+                    expected="non-symlink",
+                    got=str(diff_out),
+                    path=json_pointer("diff_out"),
+                )
+            ],
+            inputs,
+            outputs,
+            diff_paths,
+            source_rev=source_rev,
+            input_hash=input_hash.input_hash,
+            summary=f"{TOOL_NAME}: diff write blocked",
+        )
+        return 2
+
+    _emit_result(
+        "ok",
+        [],
+        inputs,
+        outputs,
+        diff_paths,
+        source_rev=source_rev,
+        input_hash=input_hash.input_hash,
+        summary=f"{TOOL_NAME}: diff written",
+    )
     return 0
 
 

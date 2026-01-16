@@ -232,6 +232,19 @@ def main() -> int:
         payload = [d.to_dict() for d in policy_result.diagnostics]
         print(json.dumps(payload, ensure_ascii=False, indent=2), file=sys.stderr)
     policy = policy_result.policy
+    if args.publish and not args.build_ssot:
+        _print_diags(
+            [
+                Diagnostic(
+                    code="E_L2_GATE_BUILD_SSOT_REQUIRED",
+                    message="--publish requires --build-ssot",
+                    expected="--build-ssot",
+                    got="missing",
+                    path=json_pointer("publish"),
+                )
+            ]
+        )
+        return 2
 
     today = _parse_date(args.today)
     exception_overrides: set[str] = set()

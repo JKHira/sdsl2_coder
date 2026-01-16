@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+# ruff: noqa: E402
 
 from __future__ import annotations
 
 import argparse
+import difflib
 import json
 import subprocess
 import sys
@@ -20,6 +22,10 @@ from sdslv2_builder.op_yaml import dump_yaml
 from sdslv2_builder.refs import RELID_RE
 from sdslv2_builder.schema_versions import INTENT_SCHEMA_VERSION
 
+TOOL_NAME = "intent_template_gen"
+STAGE = "L0"
+DEFAULT_OUT_REL = Path("OUTPUT") / "intent_template.patch"
+
 
 def _diag(
     diags: list[Diagnostic],
@@ -32,9 +38,39 @@ def _diag(
     diags.append(Diagnostic(code=code, message=message, expected=expected, got=got, path=path))
 
 
-def _print_diags(diags: list[Diagnostic]) -> None:
-    payload = [d.to_dict() for d in diags]
-    print(json.dumps(payload, ensure_ascii=False, indent=2), file=sys.stderr)
+def _emit_result(
+    status: str,
+    diags: list[Diagnostic],
+    inputs: list[str],
+    outputs: list[str],
+    diff_paths: list[str],
+    source_rev: str | None = None,
+    input_hash: str | None = None,
+    summary: str | None = None,
+    next_actions: list[str] | None = None,
+    gaps_missing: list[str] | None = None,
+    gaps_invalid: list[str] | None = None,
+) -> None:
+    codes = sorted({diag.code for diag in diags})
+    payload = {
+        "status": status,
+        "tool": TOOL_NAME,
+        "stage": STAGE,
+        "source_rev": source_rev,
+        "input_hash": input_hash,
+        "inputs": inputs,
+        "outputs": outputs,
+        "diff_paths": diff_paths,
+        "diagnostics": {"count": len(diags), "codes": codes},
+        "gaps": {
+            "missing": gaps_missing or [],
+            "invalid": gaps_invalid or [],
+        },
+        "next_actions": next_actions or [],
+    }
+    print(json.dumps(payload, ensure_ascii=False))
+    if summary:
+        print(summary, file=sys.stderr)
 
 
 def _git_rev(root: Path) -> str:
@@ -75,6 +111,17 @@ def _has_symlink_parent(path: Path, stop: Path) -> bool:
         if parent.is_symlink():
             return True
     return False
+
+
+def _rel_path(project_root: Path, path: Path) -> str:
+    try:
+        return path.resolve().relative_to(project_root.resolve()).as_posix()
+    except ValueError:
+        return str(path)
+
+
+def _build_source_rev(git_rev: str, generator_id: str) -> str:
+    return f"{git_rev}|gen:{generator_id}"
 
 
 def _collect_nodes(lines: list[str], diags: list[Diagnostic], path_ref: str) -> list[dict[str, str]]:
@@ -120,7 +167,7 @@ def _collect_nodes(lines: list[str], diags: list[Diagnostic], path_ref: str) -> 
             item["kind"] = kind
         nodes.append(item)
         node_index += 1
-    return sorted(nodes, key=lambda item: item.get("id", ""))
+    return nodes
 
 
 def _default_out_path(project_root: Path, topo_path: Path) -> Path:
@@ -192,19 +239,26 @@ def _validate_file_header(lines: list[str], diags: list[Diagnostic], path_ref: s
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--input", required=True, help="Topology file or directory")
-    ap.add_argument("--out", default=None, help="Output YAML path (single input only)")
-    ap.add_argument("--dry-run", action="store_true", help="Print YAML to stdout (single input only)")
+    ap.add_argument("--out", default=None, help="Diff output path (default: OUTPUT/intent_template.patch)")
+    ap.add_argument("--dry-run", action="store_true", help="Do not write diff output (JSON-only)")
     ap.add_argument("--generator-id", default="intent_template_gen_v0_1", help="Generator id")
     ap.add_argument("--project-root", default=None, help="Project root (defaults to repo root)")
-    ap.add_argument("--overwrite", action="store_true", help="Allow overwriting existing output files")
+    ap.add_argument("--overwrite", action="store_true", help="Allow overwriting existing diff output")
     args = ap.parse_args()
 
     project_root = Path(args.project_root).resolve() if args.project_root else ROOT
     topo_root = project_root / "sdsl2" / "topology"
     intent_root = project_root / "drafts" / "intent"
+    input_path = _resolve_path(project_root, args.input)
+    diff_out = _resolve_path(project_root, args.out) if args.out else project_root / DEFAULT_OUT_REL
+    inputs = [_rel_path(project_root, input_path)]
+    outputs = [_rel_path(project_root, diff_out)]
+    diff_paths = [_rel_path(project_root, diff_out)]
+    source_rev = _build_source_rev(_git_rev(project_root), args.generator_id)
 
     if topo_root.is_symlink() or _has_symlink_parent(topo_root, project_root):
-        _print_diags(
+        _emit_result(
+            "fail",
             [
                 Diagnostic(
                     code="E_INTENT_TEMPLATE_TOPO_ROOT_SYMLINK",
@@ -213,11 +267,17 @@ def main() -> int:
                     got=str(topo_root),
                     path=json_pointer("input"),
                 )
-            ]
+            ],
+            inputs,
+            outputs,
+            diff_paths,
+            source_rev=source_rev,
+            summary=f"{TOOL_NAME}: topo root invalid",
         )
         return 2
     if intent_root.is_symlink() or _has_symlink_parent(intent_root, project_root):
-        _print_diags(
+        _emit_result(
+            "fail",
             [
                 Diagnostic(
                     code="E_INTENT_TEMPLATE_INTENT_ROOT_SYMLINK",
@@ -226,13 +286,18 @@ def main() -> int:
                     got=str(intent_root),
                     path=json_pointer("out"),
                 )
-            ]
+            ],
+            inputs,
+            outputs,
+            diff_paths,
+            source_rev=source_rev,
+            summary=f"{TOOL_NAME}: intent root invalid",
         )
         return 2
 
-    input_path = _resolve_path(project_root, args.input)
     if not input_path.exists():
-        _print_diags(
+        _emit_result(
+            "fail",
             [
                 Diagnostic(
                     code="E_INTENT_TEMPLATE_INPUT_NOT_FOUND",
@@ -241,11 +306,17 @@ def main() -> int:
                     got=str(input_path),
                     path=json_pointer("input"),
                 )
-            ]
+            ],
+            inputs,
+            outputs,
+            diff_paths,
+            source_rev=source_rev,
+            summary=f"{TOOL_NAME}: input not found",
         )
         return 2
     if input_path.is_symlink() or _has_symlink_parent(input_path, project_root):
-        _print_diags(
+        _emit_result(
+            "fail",
             [
                 Diagnostic(
                     code="E_INTENT_TEMPLATE_INPUT_SYMLINK",
@@ -254,13 +325,19 @@ def main() -> int:
                     got=str(input_path),
                     path=json_pointer("input"),
                 )
-            ]
+            ],
+            inputs,
+            outputs,
+            diff_paths,
+            source_rev=source_rev,
+            summary=f"{TOOL_NAME}: input symlink blocked",
         )
         return 2
     try:
         input_path.resolve().relative_to(topo_root.resolve())
     except ValueError:
-        _print_diags(
+        _emit_result(
+            "fail",
             [
                 Diagnostic(
                     code="E_INTENT_TEMPLATE_INPUT_NOT_SSOT",
@@ -269,7 +346,12 @@ def main() -> int:
                     got=str(input_path),
                     path=json_pointer("input"),
                 )
-            ]
+            ],
+            inputs,
+            outputs,
+            diff_paths,
+            source_rev=source_rev,
+            summary=f"{TOOL_NAME}: input out of scope",
         )
         return 2
 
@@ -278,7 +360,8 @@ def main() -> int:
         for path in sorted(input_path.rglob("*.sdsl2")):
             if path.is_file():
                 if path.is_symlink() or _has_symlink_parent(path, topo_root):
-                    _print_diags(
+                    _emit_result(
+                        "fail",
                         [
                             Diagnostic(
                                 code="E_INTENT_TEMPLATE_INPUT_SYMLINK",
@@ -287,7 +370,12 @@ def main() -> int:
                                 got=str(path),
                                 path=json_pointer("input"),
                             )
-                        ]
+                        ],
+                        inputs,
+                        outputs,
+                        diff_paths,
+                        source_rev=source_rev,
+                        summary=f"{TOOL_NAME}: input symlink blocked",
                     )
                     return 2
                 topo_paths.append(path)
@@ -295,7 +383,8 @@ def main() -> int:
         topo_paths = [input_path]
 
     if not topo_paths:
-        _print_diags(
+        _emit_result(
+            "fail",
             [
                 Diagnostic(
                     code="E_INTENT_TEMPLATE_INPUT_EMPTY",
@@ -304,41 +393,24 @@ def main() -> int:
                     got=str(input_path),
                     path=json_pointer("input"),
                 )
-            ]
-        )
-        return 2
-
-    if args.out and len(topo_paths) != 1:
-        _print_diags(
-            [
-                Diagnostic(
-                    code="E_INTENT_TEMPLATE_OUT_MULTI",
-                    message="--out requires single input",
-                    expected="single file input",
-                    got="multiple inputs",
-                    path=json_pointer("out"),
-                )
-            ]
-        )
-        return 2
-    if args.dry_run and len(topo_paths) != 1:
-        _print_diags(
-            [
-                Diagnostic(
-                    code="E_INTENT_TEMPLATE_DRYRUN_MULTI",
-                    message="--dry-run requires single input",
-                    expected="single file input",
-                    got="multiple inputs",
-                    path=json_pointer("dry_run"),
-                )
-            ]
+            ],
+            inputs,
+            outputs,
+            diff_paths,
+            source_rev=source_rev,
+            summary=f"{TOOL_NAME}: input empty",
         )
         return 2
 
     try:
-        input_hash = compute_input_hash(project_root, include_decisions=False)
+        input_hash = compute_input_hash(
+            project_root,
+            include_decisions=False,
+            extra_inputs=topo_paths,
+        )
     except (FileNotFoundError, ValueError, OSError, UnicodeDecodeError) as exc:
-        _print_diags(
+        _emit_result(
+            "fail",
             [
                 Diagnostic(
                     code="E_INTENT_TEMPLATE_INPUT_HASH_FAILED",
@@ -347,12 +419,18 @@ def main() -> int:
                     got=str(exc),
                     path=json_pointer("input_hash"),
                 )
-            ]
+            ],
+            inputs,
+            outputs,
+            diff_paths,
+            source_rev=source_rev,
+            summary=f"{TOOL_NAME}: input_hash failed",
         )
         return 2
 
-    source_rev = _git_rev(project_root)
+    inputs = [_rel_path(project_root, path) for path in topo_paths]
     diags: list[Diagnostic] = []
+    output_chunks: list[str] = []
     for topo_path in topo_paths:
         file_diags: list[Diagnostic] = []
         try:
@@ -392,7 +470,7 @@ def main() -> int:
                 "topology file must contain @Node entries",
                 "non-empty @Node list",
                 rel,
-                json_pointer("nodes"),
+                json_pointer(rel, "nodes"),
             )
             diags.extend(file_diags)
             continue
@@ -411,10 +489,7 @@ def main() -> int:
             diags.extend(file_diags)
             continue
 
-        if args.out:
-            out_path = _resolve_path(project_root, args.out)
-        else:
-            out_path = _default_out_path(project_root, topo_path)
+        out_path = _default_out_path(project_root, topo_path)
         try:
             out_path.resolve().relative_to(intent_root.resolve())
         except ValueError:
@@ -461,43 +536,250 @@ def main() -> int:
             )
             diags.extend(file_diags)
             continue
-        if out_path.exists() and not args.overwrite and not args.dry_run:
+
+        try:
+            old_text = out_path.read_text(encoding="utf-8") if out_path.exists() else ""
+        except (OSError, UnicodeDecodeError) as exc:
             _diag(
                 file_diags,
-                "E_INTENT_TEMPLATE_OUTPUT_EXISTS",
-                "output already exists",
-                "use --overwrite",
-                str(out_path),
+                "E_INTENT_TEMPLATE_OUTPUT_READ_FAILED",
+                "output must be readable UTF-8",
+                "readable UTF-8 file",
+                str(exc),
                 json_pointer("out"),
             )
             diags.extend(file_diags)
             continue
+        new_text = dump_yaml(payload)
+        diff = difflib.unified_diff(
+            old_text.splitlines(),
+            new_text.splitlines(),
+            fromfile=str(out_path),
+            tofile=str(out_path),
+            lineterm="",
+        )
+        chunk = "\n".join(diff)
+        if chunk:
+            output_chunks.append(chunk)
 
-        text = dump_yaml(payload)
-        if args.dry_run:
-            print(text, end="")
-        else:
-            out_path.parent.mkdir(parents=True, exist_ok=True)
-            try:
-                atomic_write_text(out_path, text, symlink_code="E_INTENT_TEMPLATE_OUTPUT_SYMLINK")
-            except ValueError as exc:
-                _diag(
-                    file_diags,
-                    str(exc),
-                    "output must not be symlink",
-                    "non-symlink",
-                    str(out_path),
-                    json_pointer("out"),
-                )
-                diags.extend(file_diags)
-                continue
         if file_diags:
             diags.extend(file_diags)
             continue
 
     if diags:
-        _print_diags(diags)
+        _emit_result(
+            "fail",
+            diags,
+            inputs,
+            outputs,
+            diff_paths,
+            source_rev=source_rev,
+            input_hash=input_hash.input_hash,
+            summary=f"{TOOL_NAME}: generation failed",
+        )
         return 2
+    if not output_chunks:
+        _emit_result(
+            "diag",
+            [
+                Diagnostic(
+                    code="E_INTENT_TEMPLATE_NO_CHANGE",
+                    message="no intent updates required",
+                    expected="diff",
+                    got="no change",
+                    path=json_pointer("out"),
+                )
+            ],
+            inputs,
+            outputs,
+            diff_paths,
+            source_rev=source_rev,
+            input_hash=input_hash.input_hash,
+            summary=f"{TOOL_NAME}: no changes required",
+        )
+        return 0
+
+    if args.dry_run:
+        _emit_result(
+            "diag",
+            [
+                Diagnostic(
+                    code="E_INTENT_TEMPLATE_DRY_RUN",
+                    message="dry-run: diff not written",
+                    expected="write diff",
+                    got="dry-run",
+                    path=json_pointer("out"),
+                )
+            ],
+            inputs,
+            [],
+            [],
+            source_rev=source_rev,
+            input_hash=input_hash.input_hash,
+            summary=f"{TOOL_NAME}: dry-run",
+            next_actions=[f"rerun without --dry-run to write {diff_out}"],
+        )
+        return 0
+
+    output_root = project_root / "OUTPUT"
+    try:
+        diff_out.resolve().relative_to(project_root.resolve())
+    except ValueError:
+        _emit_result(
+            "fail",
+            [
+                Diagnostic(
+                    code="E_INTENT_TEMPLATE_OUTSIDE_PROJECT",
+                    message="out must be under project_root",
+                    expected="project_root/...",
+                    got=str(diff_out),
+                    path=json_pointer("out"),
+                )
+            ],
+            inputs,
+            outputs,
+            diff_paths,
+            source_rev=source_rev,
+            input_hash=input_hash.input_hash,
+            summary=f"{TOOL_NAME}: invalid output path",
+        )
+        return 2
+    try:
+        diff_out.resolve().relative_to(output_root.resolve())
+    except ValueError:
+        _emit_result(
+            "fail",
+            [
+                Diagnostic(
+                    code="E_INTENT_TEMPLATE_OUT_NOT_OUTPUT",
+                    message="out must be under OUTPUT/",
+                    expected="OUTPUT/...",
+                    got=str(diff_out),
+                    path=json_pointer("out"),
+                )
+            ],
+            inputs,
+            outputs,
+            diff_paths,
+            source_rev=source_rev,
+            input_hash=input_hash.input_hash,
+            summary=f"{TOOL_NAME}: output must be under OUTPUT",
+        )
+        return 2
+    if diff_out.exists() and not args.overwrite:
+        _emit_result(
+            "fail",
+            [
+                Diagnostic(
+                    code="E_INTENT_TEMPLATE_OUT_EXISTS",
+                    message="out already exists (use --overwrite)",
+                    expected="non-existing output",
+                    got=str(diff_out),
+                    path=json_pointer("out"),
+                )
+            ],
+            inputs,
+            outputs,
+            diff_paths,
+            source_rev=source_rev,
+            input_hash=input_hash.input_hash,
+            summary=f"{TOOL_NAME}: output exists",
+        )
+        return 2
+    if diff_out.exists() and diff_out.is_dir():
+        _emit_result(
+            "fail",
+            [
+                Diagnostic(
+                    code="E_INTENT_TEMPLATE_OUT_IS_DIR",
+                    message="out must be file",
+                    expected="file",
+                    got=str(diff_out),
+                    path=json_pointer("out"),
+                )
+            ],
+            inputs,
+            outputs,
+            diff_paths,
+            source_rev=source_rev,
+            input_hash=input_hash.input_hash,
+            summary=f"{TOOL_NAME}: invalid output path",
+        )
+        return 2
+    if diff_out.exists() and diff_out.is_symlink():
+        _emit_result(
+            "fail",
+            [
+                Diagnostic(
+                    code="E_INTENT_TEMPLATE_OUT_SYMLINK",
+                    message="out must not be symlink",
+                    expected="non-symlink",
+                    got=str(diff_out),
+                    path=json_pointer("out"),
+                )
+            ],
+            inputs,
+            outputs,
+            diff_paths,
+            source_rev=source_rev,
+            input_hash=input_hash.input_hash,
+            summary=f"{TOOL_NAME}: invalid output path",
+        )
+        return 2
+    if _has_symlink_parent(diff_out, project_root):
+        _emit_result(
+            "fail",
+            [
+                Diagnostic(
+                    code="E_INTENT_TEMPLATE_OUT_SYMLINK_PARENT",
+                    message="out parent must not be symlink",
+                    expected="non-symlink",
+                    got=str(diff_out),
+                    path=json_pointer("out"),
+                )
+            ],
+            inputs,
+            outputs,
+            diff_paths,
+            source_rev=source_rev,
+            input_hash=input_hash.input_hash,
+            summary=f"{TOOL_NAME}: invalid output path",
+        )
+        return 2
+    diff_out.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        atomic_write_text(diff_out, "\n".join(output_chunks) + "\n", symlink_code="E_INTENT_TEMPLATE_OUTPUT_SYMLINK")
+    except ValueError as exc:
+        _emit_result(
+            "fail",
+            [
+                Diagnostic(
+                    code=str(exc),
+                    message="out must not be symlink",
+                    expected="non-symlink",
+                    got=str(diff_out),
+                    path=json_pointer("out"),
+                )
+            ],
+            inputs,
+            outputs,
+            diff_paths,
+            source_rev=source_rev,
+            input_hash=input_hash.input_hash,
+            summary=f"{TOOL_NAME}: output write blocked",
+        )
+        return 2
+
+    _emit_result(
+        "ok",
+        [],
+        inputs,
+        outputs,
+        diff_paths,
+        source_rev=source_rev,
+        input_hash=input_hash.input_hash,
+        summary=f"{TOOL_NAME}: diff written",
+    )
     return 0
 
 

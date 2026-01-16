@@ -74,6 +74,7 @@ Rules
 
 11) Execution Checklist (Track Progress)
 - [ ] L0: stage consistency enforced (topology @File.stage aligns with actual stage).
+- [x] L0: intent_template_gen/topology_enricher output diff-only (OUTPUT/*) and stdout JSON-only.
 - [x] L0: topology_channel_builder produces diff-only channel updates.
 - [x] L1: contract_api_builder implemented and usable for explicit API/type input.
 - [ ] L1: contract_error_model_builder implemented and wired to gate.

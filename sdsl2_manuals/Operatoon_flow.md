@@ -108,6 +108,10 @@ L0 のゴール
 	5.	Intent Preview（レビュー用の派生出力）
 
 	•	OUTPUT/intent_preview.sdsl2
+
+L0 の明示入力ツール（diff-only）
+	•	intent_template_gen：Topology から Intent の骨格を生成（OUTPUT/intent_template.patch、stdout は JSON のみ）
+	•	topology_enricher：summary/io を明示入力で補完（OUTPUT/topology_enricher.patch、stdout は JSON のみ）
 	•	Intent YAML から決定論的に生成し、SSOT には反映しない
 
 	6.	Resolution Gap Report（欠落診断の派生出力）
@@ -147,6 +151,7 @@ L1 の中核は、次の三点セットです。
 Edge Intent と Contract Map の明示入力
 	•	edge_intents_proposed は intent_edge_builder（明示入力YAML）で生成し、diff-only で intent に反映する
 	•	contract_map は contract_map_builder（明示入力YAML）で生成し、drafts/contract_map.yaml に diff-only で反映する
+	•	contract_map_builder の diff は OUTPUT/contract_map.patch（stdout は JSON のみ）
 	•	drafts/contract_map.yaml は Draft スキーマ対象外のため、Operational Gate の draft_lint / schema_migration_check では検証対象にしない
 
 Operational Gate は、duplicate_key_lint / draft_lint / intent_lint / schema_migration_check / decisions_lint / evidence_lint / evidence_repair / readiness_check /

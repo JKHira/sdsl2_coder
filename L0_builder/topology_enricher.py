@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+# ruff: noqa: E402
 
 from __future__ import annotations
 
@@ -14,10 +15,15 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from sdslv2_builder.errors import Diagnostic, json_pointer
+from sdslv2_builder.input_hash import compute_input_hash
 from sdslv2_builder.io_atomic import atomic_write_text
 from sdslv2_builder.lint import _capture_metadata, _parse_metadata_pairs
 from sdslv2_builder.op_yaml import DuplicateKey, load_yaml_with_duplicates
 from sdslv2_builder.refs import RELID_RE
+
+TOOL_NAME = "topology_enricher"
+STAGE = "L0"
+DEFAULT_OUT_REL = Path("OUTPUT") / "topology_enricher.patch"
 
 PLACEHOLDERS = {"none", "null", "tbd", "opaque"}
 
@@ -35,9 +41,39 @@ def _diag(
     )
 
 
-def _print_diags(diags: list[Diagnostic]) -> None:
-    payload = [d.to_dict() for d in diags]
-    print(json.dumps(payload, ensure_ascii=False, indent=2), file=sys.stderr)
+def _emit_result(
+    status: str,
+    diags: list[Diagnostic],
+    inputs: list[str],
+    outputs: list[str],
+    diff_paths: list[str],
+    source_rev: str | None = None,
+    input_hash: str | None = None,
+    summary: str | None = None,
+    next_actions: list[str] | None = None,
+    gaps_missing: list[str] | None = None,
+    gaps_invalid: list[str] | None = None,
+) -> None:
+    codes = sorted({diag.code for diag in diags})
+    payload = {
+        "status": status,
+        "tool": TOOL_NAME,
+        "stage": STAGE,
+        "source_rev": source_rev,
+        "input_hash": input_hash,
+        "inputs": inputs,
+        "outputs": outputs,
+        "diff_paths": diff_paths,
+        "diagnostics": {"count": len(diags), "codes": codes},
+        "gaps": {
+            "missing": gaps_missing or [],
+            "invalid": gaps_invalid or [],
+        },
+        "next_actions": next_actions or [],
+    }
+    print(json.dumps(payload, ensure_ascii=False))
+    if summary:
+        print(summary, file=sys.stderr)
 
 
 def _strip_quotes(value: str | None) -> str | None:
@@ -81,6 +117,13 @@ def _has_symlink_parent(path: Path, stop: Path) -> bool:
         if parent.is_symlink():
             return True
     return False
+
+
+def _rel_path(project_root: Path, path: Path) -> str:
+    try:
+        return path.resolve().relative_to(project_root.resolve()).as_posix()
+    except ValueError:
+        return str(path)
 
 
 def _dup_path(prefix: str, dup: DuplicateKey) -> str:
@@ -484,14 +527,25 @@ def main() -> int:
     ap.add_argument("--input", required=True, help="Topology file or directory")
     ap.add_argument("--map", default=None, help="CSV/YAML map for summary/io")
     ap.add_argument("--intent", default=None, help="Intent YAML file or dir (optional overrides)")
-    ap.add_argument("--out", default=None, help="Unified diff output path (default: stdout)")
+    ap.add_argument(
+        "--out",
+        default=None,
+        help="Unified diff output path (default: OUTPUT/topology_enricher.patch)",
+    )
     ap.add_argument("--project-root", default=None, help="Project root (defaults to repo root)")
     args = ap.parse_args()
 
     project_root = Path(args.project_root).resolve() if args.project_root else ROOT
     topo_root = project_root / "sdsl2" / "topology"
+    input_path = _resolve_path(project_root, args.input)
+    diff_out = _resolve_path(project_root, args.out) if args.out else project_root / DEFAULT_OUT_REL
+    inputs = [_rel_path(project_root, input_path)]
+    outputs = [_rel_path(project_root, diff_out)]
+    diff_paths = [_rel_path(project_root, diff_out)]
+
     if topo_root.is_symlink() or _has_symlink_parent(topo_root, project_root):
-        _print_diags(
+        _emit_result(
+            "fail",
             [
                 Diagnostic(
                     code="E_TOPOLOGY_ENRICH_SSOT_ROOT_SYMLINK",
@@ -500,13 +554,17 @@ def main() -> int:
                     got=str(topo_root),
                     path=json_pointer("input"),
                 )
-            ]
+            ],
+            inputs,
+            outputs,
+            diff_paths,
+            summary=f"{TOOL_NAME}: topo root invalid",
         )
         return 2
 
-    input_path = _resolve_path(project_root, args.input)
     if not input_path.exists():
-        _print_diags(
+        _emit_result(
+            "fail",
             [
                 Diagnostic(
                     code="E_TOPOLOGY_ENRICH_INPUT_NOT_FOUND",
@@ -515,11 +573,16 @@ def main() -> int:
                     got=str(input_path),
                     path=json_pointer("input"),
                 )
-            ]
+            ],
+            inputs,
+            outputs,
+            diff_paths,
+            summary=f"{TOOL_NAME}: input not found",
         )
         return 2
     if input_path.is_symlink() or _has_symlink_parent(input_path, project_root):
-        _print_diags(
+        _emit_result(
+            "fail",
             [
                 Diagnostic(
                     code="E_TOPOLOGY_ENRICH_INPUT_SYMLINK",
@@ -528,14 +591,19 @@ def main() -> int:
                     got=str(input_path),
                     path=json_pointer("input"),
                 )
-            ]
+            ],
+            inputs,
+            outputs,
+            diff_paths,
+            summary=f"{TOOL_NAME}: input symlink blocked",
         )
         return 2
 
     try:
         input_path.resolve().relative_to(topo_root.resolve())
     except ValueError:
-        _print_diags(
+        _emit_result(
+            "fail",
             [
                 Diagnostic(
                     code="E_TOPOLOGY_ENRICH_INPUT_NOT_SSOT",
@@ -544,7 +612,11 @@ def main() -> int:
                     got=str(input_path),
                     path=json_pointer("input"),
                 )
-            ]
+            ],
+            inputs,
+            outputs,
+            diff_paths,
+            summary=f"{TOOL_NAME}: input out of scope",
         )
         return 2
 
@@ -553,7 +625,8 @@ def main() -> int:
         for path in sorted(input_path.rglob("*.sdsl2")):
             if path.is_file():
                 if path.is_symlink() or _has_symlink_parent(path, topo_root):
-                    _print_diags(
+                    _emit_result(
+                        "fail",
                         [
                             Diagnostic(
                                 code="E_TOPOLOGY_ENRICH_INPUT_SYMLINK",
@@ -562,7 +635,11 @@ def main() -> int:
                                 got=str(path),
                                 path=json_pointer("input"),
                             )
-                        ]
+                        ],
+                        inputs,
+                        outputs,
+                        diff_paths,
+                        summary=f"{TOOL_NAME}: input symlink blocked",
                     )
                     return 2
                 paths.append(path)
@@ -570,7 +647,8 @@ def main() -> int:
         paths = [input_path]
 
     if not paths:
-        _print_diags(
+        _emit_result(
+            "fail",
             [
                 Diagnostic(
                     code="E_TOPOLOGY_ENRICH_INPUT_EMPTY",
@@ -579,12 +657,17 @@ def main() -> int:
                     got=str(input_path),
                     path=json_pointer("input"),
                 )
-            ]
+            ],
+            inputs,
+            outputs,
+            diff_paths,
+            summary=f"{TOOL_NAME}: input empty",
         )
         return 2
 
     diags: list[Diagnostic] = []
     map_entries: dict[str, dict[str, str]] = {}
+    map_path: Path | None = None
     if args.map:
         map_path = _resolve_path(project_root, args.map)
         try:
@@ -600,8 +683,10 @@ def main() -> int:
             )
         else:
             map_entries = _load_map(map_path, project_root, diags)
+            inputs.append(_rel_path(project_root, map_path))
 
     intent_entries: dict[str, dict[str, str]] = {}
+    intent_paths: list[Path] = []
     if args.intent:
         intent_path = _resolve_path(project_root, args.intent)
         try:
@@ -616,7 +701,6 @@ def main() -> int:
                 json_pointer("intent"),
             )
         else:
-            intent_paths: list[Path] = []
             if intent_path.is_dir():
                 for path in sorted(intent_path.rglob("*.yaml")):
                     if path.is_file():
@@ -624,17 +708,55 @@ def main() -> int:
             else:
                 intent_paths = [intent_path]
             intent_entries = _load_intent_overrides(intent_paths, project_root, diags)
+            inputs.extend(_rel_path(project_root, path) for path in intent_paths)
 
     if diags:
-        _print_diags(diags)
+        _emit_result(
+            "fail",
+            diags,
+            inputs,
+            outputs,
+            diff_paths,
+            summary=f"{TOOL_NAME}: input validation failed",
+        )
         return 2
 
     overrides = dict(map_entries)
     for rel_id, payload in intent_entries.items():
         overrides.setdefault(rel_id, {}).update(payload)
 
+    try:
+        extra_inputs: list[Path] = list(paths)
+        if map_path is not None:
+            extra_inputs.append(map_path)
+        extra_inputs.extend(intent_paths)
+        input_hash = compute_input_hash(
+            project_root,
+            include_decisions=False,
+            extra_inputs=extra_inputs,
+        )
+    except (FileNotFoundError, ValueError, OSError, UnicodeDecodeError) as exc:
+        _emit_result(
+            "fail",
+            [
+                Diagnostic(
+                    code="E_TOPOLOGY_ENRICH_INPUT_HASH_FAILED",
+                    message="input_hash calculation failed",
+                    expected="valid inputs",
+                    got=str(exc),
+                    path=json_pointer("input_hash"),
+                )
+            ],
+            inputs,
+            outputs,
+            diff_paths,
+            summary=f"{TOOL_NAME}: input_hash failed",
+        )
+        return 2
+
     if not overrides:
-        _print_diags(
+        _emit_result(
+            "fail",
             [
                 Diagnostic(
                     code="E_TOPOLOGY_ENRICH_NO_OVERRIDES",
@@ -643,7 +765,12 @@ def main() -> int:
                     got="missing",
                     path=json_pointer("overrides"),
                 )
-            ]
+            ],
+            inputs,
+            outputs,
+            diff_paths,
+            input_hash=input_hash.input_hash,
+            summary=f"{TOOL_NAME}: no overrides",
         )
         return 2
 
@@ -690,7 +817,15 @@ def main() -> int:
             replacements.append((start_offset, end_offset, new_meta))
 
         if diags:
-            _print_diags(diags)
+            _emit_result(
+                "fail",
+                diags,
+                inputs,
+                outputs,
+                diff_paths,
+                input_hash=input_hash.input_hash,
+                summary=f"{TOOL_NAME}: topology parse failed",
+            )
             return 2
 
         if not replacements:
@@ -712,7 +847,8 @@ def main() -> int:
             changed = True
 
     if not changed:
-        _print_diags(
+        _emit_result(
+            "diag",
             [
                 Diagnostic(
                     code="E_TOPOLOGY_ENRICH_NO_CHANGE",
@@ -721,72 +857,148 @@ def main() -> int:
                     got="no change",
                     path=json_pointer(),
                 )
-            ]
+            ],
+            inputs,
+            outputs,
+            diff_paths,
+            input_hash=input_hash.input_hash,
+            summary=f"{TOOL_NAME}: no changes required",
+        )
+        return 0
+
+    output = "\n".join(output_chunks)
+    output_root = project_root / "OUTPUT"
+    try:
+        diff_out.resolve().relative_to(project_root.resolve())
+    except ValueError:
+        _emit_result(
+            "fail",
+            [
+                Diagnostic(
+                    code="E_TOPOLOGY_ENRICH_OUTPUT_OUTSIDE_PROJECT",
+                    message="out must be under project_root",
+                    expected="project_root/...",
+                    got=str(diff_out),
+                    path=json_pointer("out"),
+                )
+            ],
+            inputs,
+            outputs,
+            diff_paths,
+            input_hash=input_hash.input_hash,
+            summary=f"{TOOL_NAME}: invalid output path",
+        )
+        return 2
+    try:
+        diff_out.resolve().relative_to(output_root.resolve())
+    except ValueError:
+        _emit_result(
+            "fail",
+            [
+                Diagnostic(
+                    code="E_TOPOLOGY_ENRICH_OUT_NOT_OUTPUT",
+                    message="out must be under OUTPUT/",
+                    expected="OUTPUT/...",
+                    got=str(diff_out),
+                    path=json_pointer("out"),
+                )
+            ],
+            inputs,
+            outputs,
+            diff_paths,
+            input_hash=input_hash.input_hash,
+            summary=f"{TOOL_NAME}: output must be under OUTPUT",
+        )
+        return 2
+    if diff_out.exists() and diff_out.is_dir():
+        _emit_result(
+            "fail",
+            [
+                Diagnostic(
+                    code="E_TOPOLOGY_ENRICH_OUTPUT_IS_DIR",
+                    message="out must be file",
+                    expected="file",
+                    got=str(diff_out),
+                    path=json_pointer("out"),
+                )
+            ],
+            inputs,
+            outputs,
+            diff_paths,
+            input_hash=input_hash.input_hash,
+            summary=f"{TOOL_NAME}: invalid output path",
+        )
+        return 2
+    if diff_out.exists() and diff_out.is_symlink():
+        _emit_result(
+            "fail",
+            [
+                Diagnostic(
+                    code="E_TOPOLOGY_ENRICH_OUTPUT_SYMLINK",
+                    message="out must not be symlink",
+                    expected="non-symlink",
+                    got=str(diff_out),
+                    path=json_pointer("out"),
+                )
+            ],
+            inputs,
+            outputs,
+            diff_paths,
+            input_hash=input_hash.input_hash,
+            summary=f"{TOOL_NAME}: invalid output path",
+        )
+        return 2
+    if _has_symlink_parent(diff_out, project_root):
+        _emit_result(
+            "fail",
+            [
+                Diagnostic(
+                    code="E_TOPOLOGY_ENRICH_OUTPUT_SYMLINK_PARENT",
+                    message="out parent must not be symlink",
+                    expected="non-symlink",
+                    got=str(diff_out),
+                    path=json_pointer("out"),
+                )
+            ],
+            inputs,
+            outputs,
+            diff_paths,
+            input_hash=input_hash.input_hash,
+            summary=f"{TOOL_NAME}: invalid output path",
+        )
+        return 2
+    diff_out.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        atomic_write_text(diff_out, output + "\n", symlink_code="E_TOPOLOGY_ENRICH_OUTPUT_SYMLINK")
+    except ValueError as exc:
+        _emit_result(
+            "fail",
+            [
+                Diagnostic(
+                    code=str(exc),
+                    message="output must not be symlink",
+                    expected="non-symlink",
+                    got=str(diff_out),
+                    path=json_pointer("out"),
+                )
+            ],
+            inputs,
+            outputs,
+            diff_paths,
+            input_hash=input_hash.input_hash,
+            summary=f"{TOOL_NAME}: output write blocked",
         )
         return 2
 
-    output = "\n".join(output_chunks)
-    if args.out:
-        out_path = _resolve_path(project_root, args.out)
-        try:
-            out_path.resolve().relative_to(project_root.resolve())
-        except ValueError:
-            _print_diags(
-                [
-                    Diagnostic(
-                        code="E_TOPOLOGY_ENRICH_OUTPUT_OUTSIDE_PROJECT",
-                        message="out must be under project_root",
-                        expected="project_root/...",
-                        got=str(out_path),
-                        path=json_pointer("out"),
-                    )
-                ]
-            )
-            return 2
-        if out_path.exists() and out_path.is_dir():
-            _print_diags(
-                [
-                    Diagnostic(
-                        code="E_TOPOLOGY_ENRICH_OUTPUT_IS_DIR",
-                        message="out must be file",
-                        expected="file",
-                        got=str(out_path),
-                        path=json_pointer("out"),
-                    )
-                ]
-            )
-            return 2
-        if _has_symlink_parent(out_path, project_root):
-            _print_diags(
-                [
-                    Diagnostic(
-                        code="E_TOPOLOGY_ENRICH_OUTPUT_SYMLINK_PARENT",
-                        message="out parent must not be symlink",
-                        expected="non-symlink",
-                        got=str(out_path),
-                        path=json_pointer("out"),
-                    )
-                ]
-            )
-            return 2
-        out_path.parent.mkdir(parents=True, exist_ok=True)
-        try:
-            atomic_write_text(out_path, output + "\n", symlink_code="E_TOPOLOGY_ENRICH_OUTPUT_SYMLINK")
-        except ValueError as exc:
-            _print_diags(
-                [
-                    Diagnostic(
-                        code=str(exc),
-                        message="output must not be symlink",
-                        expected="non-symlink",
-                        got=str(out_path),
-                        path=json_pointer("out"),
-                    )
-                ]
-            )
-            return 2
-    else:
-        print(output)
+    _emit_result(
+        "ok",
+        [],
+        inputs,
+        outputs,
+        diff_paths,
+        input_hash=input_hash.input_hash,
+        summary=f"{TOOL_NAME}: diff written",
+    )
     return 0
 
 
